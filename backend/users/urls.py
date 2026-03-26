@@ -1,8 +1,12 @@
 from django.urls import path
 
 from .views import (
+    AdminAccountsView,
+    AdminCreateUserView,
     AnalyticsSummaryView,
     AuditSummaryView,
+    ChallanSlipGenerateView,
+    DeclineUserView,
     DashboardSummaryView,
     ExpenseEntryListCreateView,
     LoginView,
@@ -12,10 +16,18 @@ from .views import (
     RegisterView,
     ReportsSummaryView,
     SalesEntryListCreateView,
+    PendingUsersView,
+    TdsCertificateGenerateView,
+    VerifyUserView,
 )
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
+    path("admin/create-user/", AdminCreateUserView.as_view(), name="admin-create-user"),
+    path("admin/accounts/", AdminAccountsView.as_view(), name="admin-accounts"),
+    path("admin/pending-users/", PendingUsersView.as_view(), name="admin-pending-users"),
+    path("admin/verify-user/", VerifyUserView.as_view(), name="admin-verify-user"),
+    path("admin/decline-user/", DeclineUserView.as_view(), name="admin-decline-user"),
     path("login/", LoginView.as_view(), name="login"),
     path("refresh/", RefreshView.as_view(), name="refresh"),
     path("me/", ProfileView.as_view(), name="me"),
@@ -24,6 +36,8 @@ urlpatterns = [
     path("expenses/", ExpenseEntryListCreateView.as_view(), name="expenses-list-create"),
     path("dashboard/", DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("reports/", ReportsSummaryView.as_view(), name="reports-summary"),
+    path("reports/tds-certificate/", TdsCertificateGenerateView.as_view(), name="tds-certificate"),
+    path("reports/challan-slip/", ChallanSlipGenerateView.as_view(), name="challan-slip"),
     path("analytics/", AnalyticsSummaryView.as_view(), name="analytics-summary"),
     path("audit/", AuditSummaryView.as_view(), name="audit-summary"),
 ]

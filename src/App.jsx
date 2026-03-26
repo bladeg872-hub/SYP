@@ -11,7 +11,7 @@ import PurchasesPage from './pages/dashboard/PurchasesPage'
 import ReportsPage from './pages/dashboard/ReportsPage'
 import SalesPage from './pages/dashboard/SalesPage'
 import SettingsPage from './pages/dashboard/SettingsPage'
-import { canAccess, getUserRole, isAuthenticated } from './utils/auth'
+import { canAccess, getDefaultRoute, getUserRole, isAuthenticated } from './utils/auth'
 
 function ProtectedRoute({ children }) {
   if (!isAuthenticated()) {
@@ -25,8 +25,12 @@ function RoleRoute({ children }) {
   const location = useLocation()
   const role = getUserRole()
 
-  if (!role || !canAccess(role, location.pathname)) {
-    return <Navigate to="/dashboard" replace />
+  if (!role) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!canAccess(role, location.pathname)) {
+    return <Navigate to={getDefaultRoute(role)} replace />
   }
 
   return children
@@ -34,7 +38,7 @@ function RoleRoute({ children }) {
 
 function PublicOnlyRoute({ children }) {
   if (isAuthenticated()) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={getDefaultRoute(getUserRole())} replace />
   }
 
   return children
@@ -50,7 +54,7 @@ function App() {
         </Route>
 
         <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={<DashboardHomePage />} />
+          <Route index element={<RoleRoute><DashboardHomePage /></RoleRoute>} />
           <Route path="sales" element={<RoleRoute><SalesPage /></RoleRoute>} />
           <Route path="purchases" element={<RoleRoute><PurchasesPage /></RoleRoute>} />
           <Route path="expenses" element={<RoleRoute><ExpensesPage /></RoleRoute>} />

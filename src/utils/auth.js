@@ -23,10 +23,6 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_TOKEN_KEY)
 }
 
-export function isAuthenticated() {
-  return Boolean(getAccessToken())
-}
-
 function parseJwtPayload(token) {
   try {
     const base64Url = token.split('.')[1]
@@ -43,15 +39,37 @@ function parseJwtPayload(token) {
   }
 }
 
+export function isTokenExpired(token) {
+  const payload = parseJwtPayload(token)
+  if (!payload?.exp) return true
+
+  // JWT exp is in seconds since epoch.
+  return payload.exp * 1000 <= Date.now()
+}
+
+export function hasValidAccessToken() {
+  const token = getAccessToken()
+  if (!token) return false
+  return !isTokenExpired(token)
+}
+
+export function isAuthenticated() {
+  return hasValidAccessToken()
+}
+
 export function getUserRole() {
   const token = getAccessToken()
-  if (!token) return null
+  if (!token || isTokenExpired(token)) return null
   const payload = parseJwtPayload(token)
   return payload?.role || null
 }
 
 export const ROLE_PERMISSIONS = {
   admin: [
+    '/dashboard/settings',
+    '/dashboard/audit',
+  ],
+  manager: [
     '/dashboard',
     '/dashboard/sales',
     '/dashboard/purchases',
@@ -83,5 +101,8 @@ export function canAccess(role, path) {
 }
 
 export function getDefaultRoute(role) {
+  if (role === 'admin') {
+    return '/dashboard/settings'
+  }
   return '/dashboard'
 }

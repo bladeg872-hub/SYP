@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import DataTable from '../../components/DataTable'
 import DatePickerInput from '../../components/DatePickerInput'
 import FileUpload from '../../components/FileUpload'
@@ -7,6 +7,7 @@ import PageHeader from '../../components/PageHeader'
 import PrimaryButton from '../../components/PrimaryButton'
 import SelectInput from '../../components/SelectInput'
 import { SALES_ENDPOINTS } from '../../config/api'
+import { useLanguage } from '../../context/LanguageContext'
 import {
   IRD_RULES,
   calculateVat,
@@ -16,6 +17,7 @@ import {
 import { getAccessToken } from '../../utils/auth'
 
 function SalesPage() {
+  const { t } = useLanguage()
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState('')
   const [buyerPanVat, setBuyerPanVat] = useState('')
@@ -32,16 +34,16 @@ function SalesPage() {
   const nepaliDatePattern = /^\d{4}-\d{2}-\d{2}$/
 
   const columns = [
-    { key: 'nepali_date', label: 'Date (BS)' },
-    { key: 'buyer_pan_vat', label: 'Buyer PAN/VAT' },
-    { key: 'amount', label: 'Amount', render: (row) => formatNpr(row.amount) },
-    { key: 'vat_amount', label: 'VAT', render: (row) => formatNpr(row.vat_amount) },
-    { key: 'total_amount', label: 'Total', render: (row) => formatNpr(row.total_amount) },
-    { key: 'fiscal_year', label: 'Fiscal Year' },
-    { key: 'period_bucket', label: 'Bucket' },
+    { key: 'nepali_date', label: t('commonDateBs') },
+    { key: 'buyer_pan_vat', label: t('tableBuyerPanVat') },
+    { key: 'amount', label: t('commonAmount'), render: (row) => formatNpr(row.amount) },
+    { key: 'vat_amount', label: t('tableVat'), render: (row) => formatNpr(row.vat_amount) },
+    { key: 'total_amount', label: t('tableTotal'), render: (row) => formatNpr(row.total_amount) },
+    { key: 'fiscal_year', label: t('commonFiscalYearBs') },
+    { key: 'period_bucket', label: t('tableBucket') },
   ]
 
-  const fetchSales = async () => {
+  const fetchSales = useCallback(async () => {
     const token = getAccessToken()
     if (!token) {
       return
@@ -54,12 +56,12 @@ function SalesPage() {
     })
 
     if (!response.ok) {
-      throw new Error('Unable to fetch sales details.')
+      throw new Error(t('salesErrFetch'))
     }
 
     const data = await response.json()
     setSalesRows(Array.isArray(data) ? data : [])
-  }
+  }, [t])
 
   useEffect(() => {
     const numericAmount = Number(amount) || 0
@@ -70,26 +72,26 @@ function SalesPage() {
 
   useEffect(() => {
     fetchSales().catch(() => {
-      setError('Unable to load sales details.')
+      setError(t('salesErrLoad'))
     })
-  }, [])
+  }, [fetchSales, t])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
 
     if (!validatePanVatNumber(buyerPanVat)) {
-      setError('Buyer PAN/VAT must be 9 to 10 digits.')
+      setError(t('salesErrPanVat'))
       return
     }
 
     if (!nepaliDatePattern.test(date)) {
-      setError('Date must be in Nepali format YYYY-MM-DD.')
+      setError(t('commonDateFormatError'))
       return
     }
 
     const token = getAccessToken()
     if (!token) {
-      setError('Your session has expired. Please sign in again.')
+      setError(t('commonSessionExpired'))
       return
     }
 
@@ -121,11 +123,11 @@ function SalesPage() {
           data?.nepali_date?.[0] ||
           data?.amount?.[0] ||
           data?.detail ||
-          'Unable to submit sales entry.'
+          t('salesErrSubmit')
         throw new Error(message)
       }
 
-      setSubmittedMessage('Sales entry submitted successfully.')
+      setSubmittedMessage(t('salesSuccessSubmit'))
       setAmount('')
       setDate('')
       setBuyerPanVat('')
@@ -141,38 +143,38 @@ function SalesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Add Sales" subtitle="Record sales transaction with tax preview" />
+      <PageHeader title={t('salesTitle')} subtitle={t('salesSubtitle')} />
 
       <form onSubmit={handleSubmit} className="rounded-lg bg-white p-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
           <FormInput
-            label="Amount"
+            label={t('commonAmount')}
             name="amount"
             type="number"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            placeholder="Enter amount in NPR"
+            placeholder={t('commonAmount')}
             required
           />
 
           <FormInput
-            label="Buyer PAN/VAT Number"
+            label={t('salesBuyerPanVat')}
             name="buyerPanVat"
             value={buyerPanVat}
             onChange={(event) => setBuyerPanVat(event.target.value)}
-            placeholder="9-10 digit PAN/VAT"
+            placeholder={t('placeholderPanVatDigits')}
             required
           />
 
           <DatePickerInput
-            label="Date (BS)"
+            label={t('commonDateBs')}
             name="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
           />
 
           <SelectInput
-            label="Fiscal Year (BS)"
+            label={t('commonFiscalYearBs')}
             name="fiscalYear"
             value={fiscalYear}
             onChange={(event) => setFiscalYear(event.target.value)}
@@ -180,42 +182,49 @@ function SalesPage() {
           />
 
           <SelectInput
-            label="Tax Return Bucket"
+            label={t('commonTaxReturnBucket')}
             name="periodBucket"
             value={periodBucket}
             onChange={(event) => setPeriodBucket(event.target.value)}
-            options={IRD_RULES.periodBuckets}
+            options={IRD_RULES.periodBuckets.map((item) => ({
+              value: item.value,
+              label: item.value === 'monthly'
+                ? t('reportsPeriodMonthly')
+                : item.value === 'quarterly'
+                  ? t('reportsPeriodQuarterly')
+                  : t('reportsPeriodAnnual'),
+            }))}
           />
 
           <FileUpload
-            label="Bill Upload"
+            label={t('commonBillUpload')}
             name="billUpload"
             onChange={(event) => setBillFile(event.target.files?.[0]?.name ?? '')}
           />
         </div>
 
         <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
-          <h3 className="text-sm font-semibold text-gray-800">Tax Preview</h3>
+          <h3 className="text-sm font-semibold text-gray-800">{t('salesTaxPreviewTitle')}</h3>
           <div className="mt-2 grid gap-2 text-sm text-gray-700 sm:grid-cols-2">
-            <p>Output VAT (13%): {formatNpr(preview.vat)}</p>
-            <p className="font-semibold">Total With VAT: {formatNpr(preview.net)}</p>
+            <p>{t('salesOutputVat')}: {formatNpr(preview.vat)}</p>
+            <p className="font-semibold">{t('salesTotalWithVat')}: {formatNpr(preview.net)}</p>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            IRD mode: VAT enabled for sales, TDS not applied on sales entries.
+            {t('salesIrdModeNote')}
           </p>
-          {billFile ? <p className="mt-2 text-xs text-gray-500">Selected file: {billFile}</p> : null}
+          {billFile ? <p className="mt-2 text-xs text-gray-500">{t('commonSelectedFile')}: {billFile}</p> : null}
         </div>
 
         <div className="mt-5">
           <PrimaryButton type="submit" disabled={saving}>
-            Submit Sales Entry
+            {t('salesSubmit')}
           </PrimaryButton>
           <button
             type="button"
             onClick={() => setShowDetails((prev) => !prev)}
             className="ml-3 text-sm font-medium text-blue-600 hover:text-blue-700"
           >
-            {showDetails ? 'Hide Sales Entry History' : 'View Sales Entry History'}
+            {showDetails ? t('salesHideHistory') : t('salesViewHistory')}
           </button>
         </div>
 
@@ -225,12 +234,12 @@ function SalesPage() {
 
       {showDetails ? (
         <div className="rounded-lg bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-900">Sales Entry History</h3>
-          <p className="mt-1 text-sm text-gray-500">Latest submitted sales entries.</p>
+          <h3 className="text-base font-semibold text-gray-900">{t('salesHistoryTitle')}</h3>
+          <p className="mt-1 text-sm text-gray-500">{t('salesHistorySubtitle')}</p>
           <div className="mt-4">
             <DataTable columns={columns} data={salesRows} />
             {salesRows.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500">No sales entries found yet.</p>
+              <p className="mt-3 text-sm text-gray-500">{t('salesNoEntries')}</p>
             ) : null}
           </div>
         </div>

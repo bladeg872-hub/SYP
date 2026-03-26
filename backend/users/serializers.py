@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from decimal import Decimal
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import ExpenseEntry, PurchaseEntry, SalesEntry, UserProfile
@@ -20,6 +21,12 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_pan(self, value):
         if UserProfile.objects.filter(pan=value).exists():
             raise serializers.ValidationError("An account with this PAN already exists.")
+        return value
+
+    def validate_role(self, value):
+        # Public signup cannot self-assign admin privileges.
+        if value == "admin":
+            raise serializers.ValidationError("Admin accounts can only be created by an existing admin.")
         return value
 
     def create(self, validated_data):
@@ -44,18 +51,58 @@ class RegisterSerializer(serializers.ModelSerializer):
             institution_name=institution_name,
             full_name=full_name,
             role=role,
+            is_verified=False,
         )
 
         return user
 
 
+class AdminCreateUserSerializer(RegisterSerializer):
+    def validate_role(self, value):
+        return value
+
+    def create(self, validated_data):
+        user = super().create(validated_data)
+        if hasattr(user, "profile"):
+            user.profile.is_verified = True
+            user.profile.save(update_fields=["is_verified"])
+        return user
+
+
+class ManagerCreateUserSerializer(RegisterSerializer):
+    def validate_role(self, value):
+        if value not in ("accountant", "auditor"):
+            raise serializers.ValidationError("Business owners can only create accountant or auditor accounts.")
+        return value
+
+    def create(self, validated_data):
+        user = super().create(validated_data)
+        if hasattr(user, "profile"):
+            user.profile.is_verified = True
+            user.profile.save(update_fields=["is_verified"])
+        return user
+
+
+class AccountInfoSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField(allow_blank=True)
+    full_name = serializers.CharField(allow_blank=True)
+    institution_name = serializers.CharField(allow_blank=True)
+    pan = serializers.CharField()
+    role = serializers.CharField()
+    is_verified = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+
+
 class UserSerializer(serializers.ModelSerializer):
     institution_name = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
+    is_verified = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "institution_name", "role"]
+        fields = ["id", "username", "email", "first_name", "last_name", "institution_name", "role", "is_verified"]
 
     def get_institution_name(self, obj):
         if hasattr(obj, "profile"):
@@ -66,6 +113,11 @@ class UserSerializer(serializers.ModelSerializer):
         if hasattr(obj, "profile"):
             return obj.profile.role
         return "accountant"
+
+    def get_is_verified(self, obj):
+        if hasattr(obj, "profile"):
+            return obj.profile.is_verified
+        return False
 
 
 class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -94,6 +146,9 @@ class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
 
             if user:
                 attrs["username"] = user.username
+
+                if hasattr(user, "profile") and user.profile.role != "admin" and not user.profile.is_verified:
+                    raise ValidationError({"detail": "Your account is pending admin verification."})
 
         return super().validate(attrs)
 

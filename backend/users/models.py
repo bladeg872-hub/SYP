@@ -5,6 +5,7 @@ from django.db import models
 class UserProfile(models.Model):
 	ROLE_CHOICES = [
 		("admin", "Admin"),
+		("manager", "Manager"),
 		("accountant", "Accountant"),
 		("auditor", "Auditor"),
 	]
@@ -14,6 +15,7 @@ class UserProfile(models.Model):
 	full_name = models.CharField(max_length=255, blank=True)
 	pan = models.CharField(max_length=10, unique=True)
 	role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="accountant")
+	is_verified = models.BooleanField(default=False)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	def __str__(self):

@@ -4,9 +4,9 @@ This backend provides JWT-based authentication APIs for your frontend.
 
 ## Database
 
-By default, the backend uses SQLite for local development (no extra setup required).
+By default, the backend now uses MySQL.
 
-If you want to use MySQL, set `DB_ENGINE=mysql` and configure:
+Set the following environment variables before running migrations/server:
 
 ```powershell
 $env:DB_NAME="syp_db"
@@ -14,7 +14,12 @@ $env:DB_USER="root"
 $env:DB_PASSWORD="your_password"
 $env:DB_HOST="127.0.0.1"
 $env:DB_PORT="3306"
-$env:DB_ENGINE="mysql"
+```
+
+If you need SQLite fallback for quick local troubleshooting:
+
+```powershell
+$env:DB_ENGINE="sqlite"
 ```
 
 ## Endpoints

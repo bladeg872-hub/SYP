@@ -16,11 +16,13 @@ import {
 } from 'recharts'
 import PageHeader from '../../components/PageHeader'
 import { ANALYTICS_ENDPOINTS } from '../../config/api'
+import { useLanguage } from '../../context/LanguageContext'
 import { getAccessToken } from '../../utils/auth'
 
 const taxColors = ['#2563eb', '#16a34a', '#dc2626']
 
 function AnalyticsPage() {
+  const { t } = useLanguage()
   const [salesTrend, setSalesTrend] = useState([])
   const [expenseTrend, setExpenseTrend] = useState([])
   const [taxDistribution, setTaxDistribution] = useState([])
@@ -61,19 +63,19 @@ function AnalyticsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Analytics" subtitle="Visual trends for sales, expenses and tax distribution" />
-        <p className="text-sm text-gray-500">Loading analytics...</p>
+        <PageHeader title={t('analyticsTitle')} subtitle={t('analyticsSubtitle')} />
+        <p className="text-sm text-gray-500">{t('analyticsLoading')}</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Analytics" subtitle="Visual trends for sales, expenses and tax distribution" />
+      <PageHeader title={t('analyticsTitle')} subtitle={t('analyticsSubtitle')} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-base font-semibold text-gray-900">Sales Trend</h3>
+          <h3 className="mb-3 text-base font-semibold text-gray-900">{t('dashboardSalesTrend')}</h3>
           <div className="h-72">
             {salesTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -87,13 +89,13 @@ function AnalyticsPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <p className="flex h-full items-center justify-center text-sm text-gray-400">No sales data yet</p>
+              <p className="flex h-full items-center justify-center text-sm text-gray-400">{t('dashboardNoSalesData')}</p>
             )}
           </div>
         </div>
 
         <div className="rounded-lg bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-base font-semibold text-gray-900">Expense Trend</h3>
+          <h3 className="mb-3 text-base font-semibold text-gray-900">{t('dashboardExpenseTrend')}</h3>
           <div className="h-72">
             {expenseTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -107,14 +109,14 @@ function AnalyticsPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="flex h-full items-center justify-center text-sm text-gray-400">No expense data yet</p>
+              <p className="flex h-full items-center justify-center text-sm text-gray-400">{t('dashboardNoExpenseData')}</p>
             )}
           </div>
         </div>
       </div>
 
       <div className="rounded-lg bg-white p-4 shadow-sm">
-        <h3 className="mb-3 text-base font-semibold text-gray-900">Tax Distribution</h3>
+        <h3 className="mb-3 text-base font-semibold text-gray-900">{t('analyticsTaxDistribution')}</h3>
         <div className="h-72">
           {taxDistribution.some((r) => r.value > 0) ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -129,7 +131,7 @@ function AnalyticsPage() {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="flex h-full items-center justify-center text-sm text-gray-400">No tax data yet</p>
+            <p className="flex h-full items-center justify-center text-sm text-gray-400">{t('analyticsNoTaxData')}</p>
           )}
         </div>
       </div>

@@ -3,9 +3,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AUTH_ENDPOINTS } from '../../config/api'
 import FormInput from '../../components/FormInput'
 import PrimaryButton from '../../components/PrimaryButton'
-import { saveTokens } from '../../utils/auth'
+import { useLanguage } from '../../context/LanguageContext'
+import { getDefaultRoute, getUserRole, saveTokens } from '../../utils/auth'
 
 function LoginPage() {
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
   const [identifier, setIdentifier] = useState('')
@@ -30,23 +32,36 @@ function LoginPage() {
         }),
       })
 
-      const data = await response.json()
+      let data = {}
+      try {
+        const text = await response.text()
+        if (text) {
+          data = JSON.parse(text)
+        }
+      } catch (parseError) {
+        console.error('Response parse error:', parseError)
+        data = { detail: 'Invalid server response' }
+      }
 
       if (!response.ok) {
         const message =
           data?.detail ||
           data?.username?.[0] ||
           data?.non_field_errors?.[0] ||
-          'Unable to sign in. Please check your credentials.'
+          t('authErrSignIn')
         throw new Error(message)
       }
 
       saveTokens(data)
-      navigate('/dashboard', { replace: true })
+      const role = getUserRole()
+      navigate(getDefaultRoute(role), {
+        replace: true,
+        state: { successMessage: t('authSuccessLogin') },
+      })
     } catch (error) {
       const message =
         error?.name === 'TypeError'
-          ? 'Unable to reach the server. Please ensure backend is running on http://127.0.0.1:8000.'
+          ? t('authErrServerUnreachable')
           : error.message
       setErrorMessage(message)
     } finally {
@@ -57,9 +72,9 @@ function LoginPage() {
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       <div className="space-y-1 text-center">
-        <h2 className="text-xl font-semibold text-gray-900">Welcome back</h2>
+        <h2 className="text-xl font-semibold text-gray-900">{t('authWelcomeBack')}</h2>
         <p className="text-sm text-gray-500">
-          Sign in to continue to your institutional dashboard
+          {t('authSignInSubtitle')}
         </p>
       </div>
 
@@ -71,21 +86,21 @@ function LoginPage() {
 
       <div className="space-y-4">
         <FormInput
-          label="Email, Username, or PAN"
+          label={t('authIdentifier')}
           name="identifier"
           type="text"
           value={identifier}
           onChange={(event) => setIdentifier(event.target.value)}
-          placeholder="institution@example.com, username, or PAN"
+          placeholder={t('authIdentifierPlaceholder')}
           required
         />
         <FormInput
-          label="Password"
+          label={t('authPassword')}
           name="password"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Enter password"
+          placeholder={t('authPasswordPlaceholder')}
           required
         />
       </div>
@@ -96,10 +111,10 @@ function LoginPage() {
             type="checkbox"
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          Keep me signed in
+          {t('authKeepSignedIn')}
         </label>
         <button type="button" className="font-medium text-blue-600 hover:text-blue-700">
-          Forgot password?
+          {t('authForgotPassword')}
         </button>
       </div>
 
@@ -111,18 +126,18 @@ function LoginPage() {
 
       <div className="block">
         <PrimaryButton type="submit" className="w-full py-2.5" disabled={loading}>
-          Sign In
+          {t('authSignIn')}
         </PrimaryButton>
       </div>
 
       <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        Your session is protected with secure sign-in controls.
+        {t('authSessionSecure')}
       </div>
 
       <p className="text-center text-sm text-gray-500">
-        No account?{' '}
+        {t('authNoAccount')}{' '}
         <Link to="/register" className="font-medium text-blue-600 hover:text-blue-700">
-          Register
+          {t('authRegister')}
         </Link>
       </p>
     </form>

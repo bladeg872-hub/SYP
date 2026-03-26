@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import DataTable from '../../components/DataTable'
 import DatePickerInput from '../../components/DatePickerInput'
 import FileUpload from '../../components/FileUpload'
@@ -7,6 +7,7 @@ import PageHeader from '../../components/PageHeader'
 import PrimaryButton from '../../components/PrimaryButton'
 import SelectInput from '../../components/SelectInput'
 import { EXPENSES_ENDPOINTS } from '../../config/api'
+import { useLanguage } from '../../context/LanguageContext'
 import {
   IRD_RULES,
   calculateTds,
@@ -18,6 +19,7 @@ import {
 import { getAccessToken } from '../../utils/auth'
 
 function ExpensesPage() {
+  const { t } = useLanguage()
   const [amount, setAmount] = useState('')
   const [tdsRate, setTdsRate] = useState('0')
   const [expenseType, setExpenseType] = useState('salary')
@@ -37,16 +39,16 @@ function ExpensesPage() {
   const nepaliDatePattern = /^\d{4}-\d{2}-\d{2}$/
 
   const columns = [
-    { key: 'nepali_date', label: 'Date (BS)' },
-    { key: 'expense_type', label: 'Type' },
-    { key: 'vendor_pan_vat', label: 'Vendor PAN/VAT' },
-    { key: 'amount', label: 'Amount', render: (row) => formatNpr(row.amount) },
-    { key: 'vat_amount', label: 'VAT', render: (row) => formatNpr(row.vat_amount) },
-    { key: 'tds_amount', label: 'TDS', render: (row) => formatNpr(row.tds_amount) },
-    { key: 'total_amount', label: 'Total', render: (row) => formatNpr(row.total_amount) },
+    { key: 'nepali_date', label: t('commonDateBs') },
+    { key: 'expense_type', label: t('tableType') },
+    { key: 'vendor_pan_vat', label: t('tableVendorPanVat') },
+    { key: 'amount', label: t('commonAmount'), render: (row) => formatNpr(row.amount) },
+    { key: 'vat_amount', label: t('tableVat'), render: (row) => formatNpr(row.vat_amount) },
+    { key: 'tds_amount', label: t('tableTds'), render: (row) => formatNpr(row.tds_amount) },
+    { key: 'total_amount', label: t('tableTotal'), render: (row) => formatNpr(row.total_amount) },
   ]
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     const token = getAccessToken()
     if (!token) return
 
@@ -54,11 +56,11 @@ function ExpensesPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
 
-    if (!response.ok) throw new Error('Unable to fetch expense details.')
+    if (!response.ok) throw new Error(t('expensesErrFetch'))
 
     const data = await response.json()
     setExpenseRows(Array.isArray(data) ? data : [])
-  }
+  }, [t])
 
   useEffect(() => {
     const numericAmount = Number(amount) || 0
@@ -76,26 +78,26 @@ function ExpensesPage() {
 
   useEffect(() => {
     fetchExpenses().catch(() => {
-      setError('Unable to load expense details.')
+      setError(t('expensesErrLoad'))
     })
-  }, [])
+  }, [fetchExpenses, t])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
 
     if (!validatePanVatNumber(vendorPanVat)) {
-      setError('Vendor PAN/VAT must be 9 to 10 digits.')
+      setError(t('expensesErrPanVat'))
       return
     }
 
     if (!nepaliDatePattern.test(date)) {
-      setError('Date must be in Nepali format YYYY-MM-DD.')
+      setError(t('commonDateFormatError'))
       return
     }
 
     const token = getAccessToken()
     if (!token) {
-      setError('Your session has expired. Please sign in again.')
+      setError(t('commonSessionExpired'))
       return
     }
 
@@ -129,11 +131,11 @@ function ExpensesPage() {
           data?.nepali_date?.[0] ||
           data?.amount?.[0] ||
           data?.detail ||
-          'Unable to submit expense entry.'
+          t('expensesErrSubmit')
         throw new Error(message)
       }
 
-      setSubmittedMessage('Expense entry submitted successfully.')
+      setSubmittedMessage(t('expensesSuccessSubmit'))
       setAmount('')
       setDate('')
       setVendorPanVat('')
@@ -150,87 +152,103 @@ function ExpensesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Add Expense" subtitle="Capture expense records with IRD-oriented tax preview" />
+      <PageHeader title={t('expensesTitle')} subtitle={t('expensesSubtitle')} />
       <form className="rounded-lg bg-white p-5 shadow-sm" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <FormInput
-            label="Amount"
+            label={t('commonAmount')}
             name="amount"
             type="number"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            placeholder="Enter expense amount"
+            placeholder={t('commonAmount')}
             required
           />
           <SelectInput
-            label="Expense Type"
+            label={t('expensesType')}
             name="expenseType"
             value={expenseType}
             onChange={(event) => setExpenseType(event.target.value)}
-            options={IRD_RULES.expenseTypeOptions}
+            options={IRD_RULES.expenseTypeOptions.map((item) => ({
+              value: item.value,
+              label: item.value === 'salary'
+                ? t('expenseTypeSalary')
+                : item.value === 'other'
+                  ? t('expenseTypeOther')
+                  : item.value === 'operational'
+                    ? t('expenseTypeOperational')
+                    : t('expenseTypeCapital'),
+            }))}
           />
           <FormInput
-            label="Vendor PAN/VAT Number"
+            label={t('expensesVendorPanVat')}
             name="vendorPanVat"
             value={vendorPanVat}
             onChange={(event) => setVendorPanVat(event.target.value)}
-            placeholder="9-10 digit PAN/VAT"
+            placeholder={t('placeholderPanVatDigits')}
             required
           />
           <SelectInput
-            label="TDS Rate"
+            label={t('expensesTdsRate')}
             name="tdsRate"
             value={tdsRate}
             onChange={(event) => setTdsRate(event.target.value)}
             options={IRD_RULES.tdsOptions}
           />
           <DatePickerInput
-            label="Date (BS)"
+            label={t('commonDateBs')}
             name="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
           />
           <SelectInput
-            label="Fiscal Year (BS)"
+            label={t('commonFiscalYearBs')}
             name="fiscalYear"
             value={fiscalYear}
             onChange={(event) => setFiscalYear(event.target.value)}
             options={IRD_RULES.fiscalYears.map((item) => ({ label: item, value: item }))}
           />
           <SelectInput
-            label="Tax Return Bucket"
+            label={t('commonTaxReturnBucket')}
             name="periodBucket"
             value={periodBucket}
             onChange={(event) => setPeriodBucket(event.target.value)}
-            options={IRD_RULES.periodBuckets}
+            options={IRD_RULES.periodBuckets.map((item) => ({
+              value: item.value,
+              label: item.value === 'monthly'
+                ? t('reportsPeriodMonthly')
+                : item.value === 'quarterly'
+                  ? t('reportsPeriodQuarterly')
+                  : t('reportsPeriodAnnual'),
+            }))}
           />
           <FileUpload
-            label="Bill Upload"
+            label={t('commonBillUpload')}
             name="billUpload"
             onChange={(event) => setBillFile(event.target.files?.[0]?.name ?? '')}
           />
         </div>
         <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-gray-700">
-          <p>VAT (13%): {formatNpr(preview.vat)}</p>
+          <p>{t('expensesVat13')}: {formatNpr(preview.vat)}</p>
           <p>
-            TDS ({tdsApplicable ? `${tdsRate}%` : 'N/A'}): {formatNpr(preview.tds)}
+            {t('expensesTdsLabel')} ({tdsApplicable ? `${tdsRate}%` : t('expensesTdsNa')}): {formatNpr(preview.tds)}
           </p>
-          <p className="font-semibold">Net After Tax: {formatNpr(preview.net)}</p>
+          <p className="font-semibold">{t('expensesNetAfterTax')}: {formatNpr(preview.net)}</p>
           <p className="mt-1 text-xs text-gray-500">
-            TDS is applied only for Salary and Other Expenses in this IRD mode.
+            {t('expensesIrdNote')}
           </p>
-          {billFile ? <p className="mt-2 text-xs text-gray-500">Selected file: {billFile}</p> : null}
+          {billFile ? <p className="mt-2 text-xs text-gray-500">{t('commonSelectedFile')}: {billFile}</p> : null}
         </div>
         <div className="mt-5">
           <PrimaryButton type="submit" disabled={saving}>
-            Submit Expense Entry
+            {t('expensesSubmit')}
           </PrimaryButton>
           <button
             type="button"
             onClick={() => setShowDetails((prev) => !prev)}
             className="ml-3 text-sm font-medium text-blue-600 hover:text-blue-700"
           >
-            {showDetails ? 'Hide Expense History' : 'View Expense History'}
+            {showDetails ? t('expensesHideHistory') : t('expensesViewHistory')}
           </button>
         </div>
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
@@ -239,12 +257,12 @@ function ExpensesPage() {
 
       {showDetails ? (
         <div className="rounded-lg bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-900">Expense Entry History</h3>
-          <p className="mt-1 text-sm text-gray-500">Latest submitted expense entries.</p>
+          <h3 className="text-base font-semibold text-gray-900">{t('expensesHistoryTitle')}</h3>
+          <p className="mt-1 text-sm text-gray-500">{t('expensesHistorySubtitle')}</p>
           <div className="mt-4">
             <DataTable columns={columns} data={expenseRows} />
             {expenseRows.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500">No expense entries found yet.</p>
+              <p className="mt-3 text-sm text-gray-500">{t('expensesNoEntries')}</p>
             ) : null}
           </div>
         </div>

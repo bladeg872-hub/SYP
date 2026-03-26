@@ -6,6 +6,11 @@ export const AUTH_ENDPOINTS = {
   register: `${API_BASE_URL}/auth/register/`,
   login: `${API_BASE_URL}/auth/login/`,
   me: `${API_BASE_URL}/auth/me/`,
+  adminCreateUser: `${API_BASE_URL}/auth/admin/create-user/`,
+  adminAccounts: `${API_BASE_URL}/auth/admin/accounts/`,
+  adminPendingUsers: `${API_BASE_URL}/auth/admin/pending-users/`,
+  adminVerifyUser: `${API_BASE_URL}/auth/admin/verify-user/`,
+  adminDeclineUser: `${API_BASE_URL}/auth/admin/decline-user/`,
 }
 
 export const SALES_ENDPOINTS = {
@@ -26,6 +31,8 @@ export const DASHBOARD_ENDPOINTS = {
 
 export const REPORTS_ENDPOINTS = {
   summary: `${API_BASE_URL}/auth/reports/`,
+  tdsCertificate: `${API_BASE_URL}/auth/reports/tds-certificate/`,
+  challanSlip: `${API_BASE_URL}/auth/reports/challan-slip/`,
 }
 
 export const ANALYTICS_ENDPOINTS = {

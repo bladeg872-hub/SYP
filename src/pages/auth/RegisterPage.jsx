@@ -4,8 +4,10 @@ import { AUTH_ENDPOINTS } from '../../config/api'
 import FormInput from '../../components/FormInput'
 import PrimaryButton from '../../components/PrimaryButton'
 import SelectInput from '../../components/SelectInput'
+import { useLanguage } from '../../context/LanguageContext'
 
 function RegisterPage() {
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const [institutionName, setInstitutionName] = useState('')
   const [fullName, setFullName] = useState('')
@@ -22,12 +24,12 @@ function RegisterPage() {
     setErrorMessage('')
 
     if (!/^\d{9,10}$/.test(pan.trim())) {
-      setErrorMessage('PAN must be 9 to 10 digits.')
+      setErrorMessage(t('authErrPanDigits'))
       return
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage('Password and confirm password do not match.')
+      setErrorMessage(t('authErrPasswordMismatch'))
       return
     }
 
@@ -61,13 +63,13 @@ function RegisterPage() {
           data?.pan?.[0] ||
           data?.password?.[0] ||
           data?.detail ||
-          'Unable to create account. Please try again.'
+          t('authErrCreateAccount')
         throw new Error(message)
       }
 
       navigate('/login', {
         replace: true,
-        state: { successMessage: 'Account created successfully. Please sign in.' },
+        state: { successMessage: t('authSuccessAccountRequested') },
       })
     } catch (error) {
       setErrorMessage(error.message)
@@ -79,65 +81,68 @@ function RegisterPage() {
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <FormInput
-        label="Institution Name"
+        label={t('authInstitutionName')}
         name="institutionName"
         value={institutionName}
         onChange={(event) => setInstitutionName(event.target.value)}
-        placeholder="ABC School"
+        placeholder={t('placeholderInstitutionName')}
         required
       />
       <FormInput
-        label="Admin Full Name"
+        label={t('authFullName')}
         name="fullName"
         value={fullName}
         onChange={(event) => setFullName(event.target.value)}
-        placeholder="Ram Sharma"
+        placeholder={t('placeholderFullName')}
         required
       />
       <FormInput
-        label="Email"
+        label={t('commonEmail')}
         name="email"
         type="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
-        placeholder="admin@institution.com"
+        placeholder={t('placeholderInstitutionEmail')}
         required
       />
       <FormInput
-        label="PAN Number"
+        label={t('authPanNumber')}
         name="pan"
         value={pan}
         onChange={(event) => setPan(event.target.value)}
-        placeholder="9-10 digit PAN"
+        placeholder={t('placeholderPanDigits')}
         required
       />
       <SelectInput
-        label="Role"
+        label={t('authRole')}
         name="role"
         value={role}
         onChange={(event) => setRole(event.target.value)}
         options={[
-          { value: 'admin', label: 'Admin' },
-          { value: 'accountant', label: 'Accountant' },
-          { value: 'auditor', label: 'Auditor' },
+          { value: 'manager', label: t('roleBusinessOwner') },
+          { value: 'accountant', label: t('roleAccountant') },
+          { value: 'auditor', label: t('roleAuditor') },
         ]}
       />
+      <p className="text-xs text-gray-500">
+        {t('authRoleHint')}
+      </p>
       <FormInput
-        label="Password"
+        label={t('authPassword')}
         name="password"
         type="password"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
-        placeholder="Create password"
+        placeholder={t('authCreatePasswordPlaceholder')}
         required
       />
       <FormInput
-        label="Confirm Password"
+        label={t('authConfirmPassword')}
         name="confirmPassword"
         type="password"
         value={confirmPassword}
         onChange={(event) => setConfirmPassword(event.target.value)}
-        placeholder="Re-enter password"
+        placeholder={t('authReenterPasswordPlaceholder')}
         required
       />
 
@@ -148,12 +153,12 @@ function RegisterPage() {
       )}
 
       <PrimaryButton type="submit" className="w-full" disabled={loading}>
-        Create Account
+        {t('authCreateAccount')}
       </PrimaryButton>
       <p className="text-center text-sm text-gray-500">
-        Already registered?{' '}
+        {t('authAlreadyRegistered')}{' '}
         <Link to="/login" className="font-medium text-blue-600">
-          Sign In
+          {t('authSignIn')}
         </Link>
       </p>
     </form>

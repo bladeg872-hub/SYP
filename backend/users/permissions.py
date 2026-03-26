@@ -33,7 +33,7 @@ class IsAdminOrAccountant(BasePermission):
         return (
             request.user.is_authenticated
             and hasattr(request.user, "profile")
-            and request.user.profile.role in ("admin", "accountant")
+            and request.user.profile.role in ("admin", "manager", "accountant")
         )
 
 
@@ -43,4 +43,13 @@ class IsAdminOrAuditor(BasePermission):
             request.user.is_authenticated
             and hasattr(request.user, "profile")
             and request.user.profile.role in ("admin", "auditor")
+        )
+
+
+class IsAdminOrManager(BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and hasattr(request.user, "profile")
+            and request.user.profile.role in ("admin", "manager")
         )

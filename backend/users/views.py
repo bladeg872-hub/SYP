@@ -8,10 +8,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import ExpenseEntry, PurchaseEntry, SalesEntry
-from .permissions import IsAdminOrAccountant
+from .permissions import IsAdmin, IsAdminOrAccountant, IsAdminOrManager
 from .serializers import (
+    AccountInfoSerializer,
+    AdminCreateUserSerializer,
     EmailOrUsernameTokenObtainPairSerializer,
     ExpenseEntrySerializer,
+    ManagerCreateUserSerializer,
     PurchaseEntrySerializer,
     RegisterSerializer,
     SalesEntrySerializer,
@@ -24,6 +27,15 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
 
+
+class AdminCreateUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [IsAdminOrManager]
+
+    def get_serializer_class(self):
+        if hasattr(self.request.user, "profile") and self.request.user.profile.role == "manager":
+            return ManagerCreateUserSerializer
+        return AdminCreateUserSerializer
 
 class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -46,6 +58,114 @@ class LoginView(TokenObtainPairView):
 
 class RefreshView(TokenRefreshView):
     permission_classes = [permissions.AllowAny]
+
+
+class VerifyUserView(APIView):
+    permission_classes = [IsAdmin]
+
+    def patch(self, request):
+        user_id = request.data.get("user_id")
+        new_role = request.data.get("role")
+
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=400)
+
+        user = User.objects.filter(id=user_id).first()
+        if not user or not hasattr(user, "profile"):
+            return Response({"detail": "User not found."}, status=404)
+
+        if new_role:
+            allowed_roles = {choice[0] for choice in user.profile.ROLE_CHOICES if choice[0] != "admin"}
+            if new_role not in allowed_roles:
+                return Response({"detail": "Invalid role."}, status=400)
+            user.profile.role = new_role
+
+        user.profile.is_verified = True
+        user.profile.save(update_fields=["role", "is_verified"] if new_role else ["is_verified"])
+
+        return Response({"detail": "User verified successfully."})
+
+
+class PendingUsersView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        pending_profiles = (
+            User.objects.select_related("profile")
+            .filter(profile__is_verified=False)
+            .exclude(profile__role="admin")
+            .order_by("-profile__created_at")
+        )
+
+        rows = [
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.profile.full_name,
+                "institution_name": user.profile.institution_name,
+                "pan": user.profile.pan,
+                "role": user.profile.role,
+                "is_verified": user.profile.is_verified,
+                "created_at": user.profile.created_at,
+            }
+            for user in pending_profiles
+        ]
+
+        serializer = AccountInfoSerializer(rows, many=True)
+        return Response({"results": serializer.data})
+
+
+class AdminAccountsView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        users = (
+            User.objects.select_related("profile")
+            .exclude(profile__role="admin")
+            .order_by("-profile__created_at")
+        )
+
+        rows = [
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.profile.full_name,
+                "institution_name": user.profile.institution_name,
+                "pan": user.profile.pan,
+                "role": user.profile.role,
+                "is_verified": user.profile.is_verified,
+                "created_at": user.profile.created_at,
+            }
+            for user in users
+        ]
+
+        serializer = AccountInfoSerializer(rows, many=True)
+        return Response({"results": serializer.data})
+
+
+class DeclineUserView(APIView):
+    permission_classes = [IsAdmin]
+
+    def patch(self, request):
+        user_id = request.data.get("user_id")
+
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=400)
+
+        user = User.objects.filter(id=user_id).first()
+        if not user or not hasattr(user, "profile"):
+            return Response({"detail": "User not found."}, status=404)
+
+        if user.profile.role == "admin":
+            return Response({"detail": "Admin accounts cannot be declined."}, status=400)
+
+        if user.profile.is_verified:
+            return Response({"detail": "Only pending signup requests can be declined."}, status=400)
+
+        user.delete()
+        return Response({"detail": "Signup request declined successfully."})
 
 
 class SalesEntryListCreateView(generics.ListCreateAPIView):
@@ -139,9 +259,31 @@ class DashboardSummaryView(APIView):
 class ReportsSummaryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @staticmethod
+    def _quarter_for_bs_date(nepali_date):
+        """Map BS date to Nepal FY quarter with 3 quarters of 4 months.
+
+        Q1: Shrawan-Kartik (months 04-07)
+        Q2: Mangsir-Falgun (months 08-11)
+        Q3: Chaitra-Asar (months 12,01,02,03)
+        """
+        try:
+            month = int((nepali_date or "").split("-")[1])
+        except (IndexError, ValueError, TypeError):
+            return None
+
+        if month in (4, 5, 6, 7):
+            return "q1"
+        if month in (8, 9, 10, 11):
+            return "q2"
+        if month in (12, 1, 2, 3):
+            return "q3"
+        return None
+
     def get(self, request):
         fiscal_year = request.query_params.get("fiscal_year", "")
         period = request.query_params.get("period", "")
+        quarter = request.query_params.get("quarter", "")
 
         sales_qs = SalesEntry.objects.filter(user=request.user)
         purchase_qs = PurchaseEntry.objects.filter(user=request.user)
@@ -152,20 +294,40 @@ class ReportsSummaryView(APIView):
             purchase_qs = purchase_qs.filter(fiscal_year=fiscal_year)
             expense_qs = expense_qs.filter(fiscal_year=fiscal_year)
 
-        if period:
+        if period and period != "annual":
             sales_qs = sales_qs.filter(period_bucket=period)
             purchase_qs = purchase_qs.filter(period_bucket=period)
             expense_qs = expense_qs.filter(period_bucket=period)
 
-        total_sales = sales_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
-        total_purchases = purchase_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
-        total_expenses = expense_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
-        total_vat = (
-            (sales_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0"))
-            + (purchase_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0"))
-            + (expense_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0"))
-        )
-        total_tds = expense_qs.aggregate(t=Sum("tds_amount"))["t"] or Decimal("0")
+        # For annual reports, include monthly and quarterly details as well
+        # instead of restricting to period_bucket="annual" only.
+        if period == "quarterly" and quarter in ("q1", "q2", "q3"):
+            sales_qs = [r for r in sales_qs if self._quarter_for_bs_date(r.nepali_date) == quarter]
+            purchase_qs = [r for r in purchase_qs if self._quarter_for_bs_date(r.nepali_date) == quarter]
+            expense_qs = [r for r in expense_qs if self._quarter_for_bs_date(r.nepali_date) == quarter]
+
+            def _sum_list(rows, key):
+                total = Decimal("0")
+                for row in rows:
+                    total += getattr(row, key) or Decimal("0")
+                return total
+
+            total_sales = _sum_list(sales_qs, "amount")
+            total_purchases = _sum_list(purchase_qs, "amount")
+            total_expenses = _sum_list(expense_qs, "amount")
+            total_vat = _sum_list(sales_qs, "vat_amount") + _sum_list(purchase_qs, "vat_amount") + _sum_list(expense_qs, "vat_amount")
+            total_tds = _sum_list(expense_qs, "tds_amount")
+        else:
+            total_sales = sales_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
+            total_purchases = purchase_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
+            total_expenses = expense_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
+            total_vat = (
+                (sales_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0"))
+                + (purchase_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0"))
+                + (expense_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0"))
+            )
+            total_tds = expense_qs.aggregate(t=Sum("tds_amount"))["t"] or Decimal("0")
+
         net = total_sales - total_purchases - total_expenses
 
         return Response({
@@ -238,3 +400,99 @@ class AuditSummaryView(APIView):
                 {"section": "Net Profit/Loss", "detail": summary["net"]},
             ],
         })
+
+
+class TdsCertificateGenerateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        fiscal_year = request.query_params.get("fiscal_year", "")
+        
+        # Get all expense entries with TDS for this fiscal year
+        expense_qs = ExpenseEntry.objects.filter(user=request.user)
+        if fiscal_year:
+            expense_qs = expense_qs.filter(fiscal_year=fiscal_year)
+        
+        # Filter expenses with TDS amount > 0
+        tds_expenses = [e for e in expense_qs if e.tds_amount and e.tds_amount > 0]
+        
+        institution_name = ""
+        pan_vat = ""
+        if hasattr(request.user, "profile"):
+            institution_name = request.user.profile.institution_name
+            pan_vat = request.user.profile.pan_vat_number
+        
+        # Calculate total TDS
+        total_tds = sum(e.tds_amount for e in tds_expenses if e.tds_amount)
+        
+        # Prepare certificate data
+        certificate_data = {
+            "certificate_number": f"TDS-CERT-{request.user.id}-{fiscal_year}",
+            "issued_date": str(__import__('datetime').date.today()),
+            "institution_name": institution_name,
+            "pan_vat_number": pan_vat,
+            "fiscal_year": fiscal_year,
+            "total_tds": str(total_tds),
+            "total_amount_of_concerned_transaction": str(sum(e.amount for e in tds_expenses if e.amount)),
+            "entries": [
+                {
+                    "date": e.nepali_date,
+                    "vendor_pan_vat": e.vendor_pan_vat_number,
+                    "description": e.expense_type,
+                    "amount": str(e.amount),
+                    "tds_rate": str(e.tds_rate) if e.tds_rate else "0",
+                    "tds_amount": str(e.tds_amount if e.tds_amount else "0"),
+                }
+                for e in tds_expenses
+            ],
+        }
+        
+        return Response(certificate_data)
+
+
+class ChallanSlipGenerateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        fiscal_year = request.query_params.get("fiscal_year", "")
+        
+        # Get all entries for this fiscal year
+        expense_qs = ExpenseEntry.objects.filter(user=request.user)
+        sale_qs = SalesEntry.objects.filter(user=request.user)
+        purchase_qs = PurchaseEntry.objects.filter(user=request.user)
+        
+        if fiscal_year:
+            expense_qs = expense_qs.filter(fiscal_year=fiscal_year)
+            sale_qs = sale_qs.filter(fiscal_year=fiscal_year)
+            purchase_qs = purchase_qs.filter(fiscal_year=fiscal_year)
+        
+        # Calculate totals
+        total_tds = expense_qs.aggregate(t=Sum("tds_amount"))["t"] or Decimal("0")
+        total_vat_out = sale_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0")
+        total_vat_in = (purchase_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0")) + (
+            expense_qs.aggregate(t=Sum("vat_amount"))["t"] or Decimal("0")
+        )
+        net_vat = total_vat_out - total_vat_in
+        
+        institution_name = ""
+        pan_vat = ""
+        if hasattr(request.user, "profile"):
+            institution_name = request.user.profile.institution_name
+            pan_vat = request.user.profile.pan_vat_number
+        
+        # Prepare challan data
+        challan_data = {
+            "challan_number": f"CHALLAN-{request.user.id}-{fiscal_year}",
+            "issued_date": str(__import__('datetime').date.today()),
+            "institution_name": institution_name,
+            "pan_vat_number": pan_vat,
+            "fiscal_year": fiscal_year,
+            "total_tds": str(total_tds),
+            "total_vat_output": str(total_vat_out),
+            "total_vat_input": str(total_vat_in),
+            "net_vat_payable": str(net_vat) if net_vat > 0 else "0",
+            "total_amount_payable": str(total_tds + (net_vat if net_vat > 0 else Decimal("0"))),
+            "tax_period": f"FY {fiscal_year}",
+        }
+        
+        return Response(challan_data)

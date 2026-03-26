@@ -55,29 +55,12 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
-
-if DB_ENGINE == "mysql":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.getenv("DB_NAME", "syp_db"),
-            "USER": os.getenv("DB_USER", "root"),
-            "PASSWORD": os.getenv("DB_PASSWORD", ""),
-            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-            "PORT": os.getenv("DB_PORT", "3306"),
-            "OPTIONS": {
-                "charset": "utf8mb4",
-            },
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -126,4 +109,8 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
 ]

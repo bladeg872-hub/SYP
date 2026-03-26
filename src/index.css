@@ -1,8 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --font-ui: 'Outfit', 'Noto Sans Devanagari', 'Segoe UI', sans-serif;
+  }
+
+  body[data-language='ne'] {
+    --font-ui: 'Noto Sans Devanagari', 'Outfit', 'Segoe UI', sans-serif;
+  }
+
   html,
   body,
   #root {
@@ -10,6 +20,7 @@
   }
 
   body {
-    @apply m-0 font-sans antialiased;
+    @apply m-0 antialiased;
+    font-family: var(--font-ui);
   }
 }

@@ -1,4 +1,8 @@
+import { useLanguage } from '../context/LanguageContext'
+
 function DatePickerInput({ label, name, value, onChange }) {
+  const { t } = useLanguage()
+
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
@@ -12,7 +16,7 @@ function DatePickerInput({ label, name, value, onChange }) {
         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
       />
       <span className="mt-1 block text-xs text-gray-500">
-        Enter BS date in YYYY-MM-DD format
+        {t('commonDateHint')}
       </span>
     </label>
   )
