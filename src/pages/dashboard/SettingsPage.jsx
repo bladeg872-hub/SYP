@@ -211,6 +211,9 @@ function SettingsPage() {
       if (isAdmin) {
         fetchPendingUsers()
         fetchAccounts()
+      } else if (isManager) {
+        // Refresh team members to show the newly created user (non-blocking)
+        fetchTeamMembers()
       }
     } catch (err) {
       setError(err.message)
