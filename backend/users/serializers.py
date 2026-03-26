@@ -76,6 +76,16 @@ class ManagerCreateUserSerializer(RegisterSerializer):
         return value
 
     def create(self, validated_data):
+        # Get the manager's profile to auto-fill institution_name
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+        
+        manager = self.context.get('request').user
+        if not hasattr(manager, 'profile'):
+            raise DRFValidationError("Manager profile not found.")
+        
+        # Force institution_name from manager's profile
+        validated_data['institution_name'] = manager.profile.institution_name
+        
         user = super().create(validated_data)
         if hasattr(user, "profile"):
             user.profile.is_verified = True
@@ -99,10 +109,11 @@ class UserSerializer(serializers.ModelSerializer):
     institution_name = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     is_verified = serializers.SerializerMethodField()
+    pan = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "institution_name", "role", "is_verified"]
+        fields = ["id", "username", "email", "first_name", "last_name", "institution_name", "role", "is_verified", "pan"]
 
     def get_institution_name(self, obj):
         if hasattr(obj, "profile"):
@@ -118,6 +129,11 @@ class UserSerializer(serializers.ModelSerializer):
         if hasattr(obj, "profile"):
             return obj.profile.is_verified
         return False
+
+    def get_pan(self, obj):
+        if hasattr(obj, "profile"):
+            return obj.profile.pan
+        return ""
 
 
 class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):

@@ -145,6 +145,50 @@ class AdminAccountsView(APIView):
         return Response({"results": serializer.data})
 
 
+class ManagerTeamMembersView(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    def get(self, request):
+        """Get team members for the current manager (filtered by institution)."""
+        if not hasattr(request.user, "profile"):
+            return Response({"detail": "User profile not found."}, status=404)
+
+        # Filter by institution_name for managers
+        if request.user.profile.role == "manager":
+            users = (
+                User.objects.select_related("profile")
+                .filter(profile__institution_name=request.user.profile.institution_name)
+                .exclude(profile__role="admin")
+                .exclude(id=request.user.id)  # Exclude self
+                .order_by("-profile__created_at")
+            )
+        else:
+            # Admins see all non-admin users
+            users = (
+                User.objects.select_related("profile")
+                .exclude(profile__role="admin")
+                .order_by("-profile__created_at")
+            )
+
+        rows = [
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.profile.full_name,
+                "institution_name": user.profile.institution_name,
+                "pan": user.profile.pan,
+                "role": user.profile.role,
+                "is_verified": user.profile.is_verified,
+                "created_at": user.profile.created_at,
+            }
+            for user in users
+        ]
+
+        serializer = AccountInfoSerializer(rows, many=True)
+        return Response({"results": serializer.data})
+
+
 class DeclineUserView(APIView):
     permission_classes = [IsAdmin]
 
@@ -166,6 +210,35 @@ class DeclineUserView(APIView):
 
         user.delete()
         return Response({"detail": "Signup request declined successfully."})
+
+
+class ManagerDeleteUserView(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    def delete(self, request):
+        user_id = request.data.get("user_id")
+
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=400)
+
+        user_to_delete = User.objects.filter(id=user_id).first()
+        if not user_to_delete or not hasattr(user_to_delete, "profile"):
+            return Response({"detail": "User not found."}, status=404)
+
+        # Prevent deletion of admin accounts
+        if user_to_delete.profile.role == "admin":
+            return Response({"detail": "Admin accounts cannot be deleted."}, status=400)
+
+        # Managers can only delete users in their institution
+        if hasattr(request.user, "profile") and request.user.profile.role == "manager":
+            if user_to_delete.profile.institution_name != request.user.profile.institution_name:
+                return Response(
+                    {"detail": "You can only delete users in your organization."},
+                    status=403,
+                )
+
+        user_to_delete.delete()
+        return Response({"detail": "User deleted successfully."})
 
 
 class SalesEntryListCreateView(generics.ListCreateAPIView):

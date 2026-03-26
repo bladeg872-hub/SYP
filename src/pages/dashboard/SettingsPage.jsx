@@ -38,6 +38,9 @@ function SettingsPage() {
   const [pan, setPan] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('accountant')
+  const [managerProfile, setManagerProfile] = useState(null)
+  const [teamMembers, setTeamMembers] = useState([])
+  const [loadingTeam, setLoadingTeam] = useState(false)
 
   const roleOptions = [
     { value: 'manager', label: t('roleBusinessOwner') },
@@ -95,12 +98,78 @@ function SettingsPage() {
     }
   }, [isAdmin, token, t]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchTeamMembers = useCallback(async () => {
+    if (!isManager || !token) return
+
+    setLoadingTeam(true)
+    setError('')
+    try {
+      const response = await fetch(AUTH_ENDPOINTS.adminTeamMembers, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await parseApiResponse(response, t('settingsErrLoadAccounts'))
+      setTeamMembers(data?.results || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoadingTeam(false)
+    }
+  }, [isManager, token, t]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm(t('settingsConfirmDelete') || 'Are you sure you want to delete this user?')) {
+      setSubmitting(true)
+      setError('')
+      setNotice('')
+      try {
+        const response = await fetch(AUTH_ENDPOINTS.adminDeleteUser, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ user_id: userId }),
+        })
+        await parseApiResponse(response, t('settingsErrDeleteUser'))
+        setNotice(t('settingsSuccessDeleteUser'))
+        if (isAdmin) {
+          fetchAccounts()
+        } else if (isManager) {
+          fetchTeamMembers()
+        }
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setSubmitting(false)
+      }
+    }
+  }
+
+  const fetchManagerProfile = useCallback(async () => {
+    if (!isManager || !token) return
+
+    try {
+      const response = await fetch(AUTH_ENDPOINTS.me, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await parseApiResponse(response, t('settingsErrLoadProfile'))
+      setManagerProfile(data)
+      // Auto-fill institution_name with manager's details, but NOT pan (must be unique per employee)
+      setInstitutionName(data.institution_name || '')
+    } catch (err) {
+      setError(err.message)
+    }
+  }, [isManager, token, t]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (isAdmin) {
       fetchPendingUsers()
       fetchAccounts()
+    } else if (isManager) {
+      fetchManagerProfile()
+      fetchTeamMembers()
     }
-  }, [isAdmin, fetchPendingUsers, fetchAccounts])
+  }, [isAdmin, isManager, fetchPendingUsers, fetchAccounts, fetchManagerProfile, fetchTeamMembers])
 
   const handleCreateUser = async (event) => {
     event.preventDefault()
@@ -248,6 +317,20 @@ function SettingsPage() {
       label: t('commonStatus'),
       render: (row) => (row.is_verified ? t('settingsVerified') : t('settingsPending')),
     },
+    {
+      key: 'actions',
+      label: t('settingsActions'),
+      render: (row) => (
+        <PrimaryButton
+          variant="outline"
+          className="py-1.5 text-red-600 hover:bg-red-50"
+          disabled={submitting}
+          onClick={() => handleDeleteUser(row.user_id)}
+        >
+          {t('settingsDelete') || 'Delete'}
+        </PrimaryButton>
+      ),
+    },
   ]
 
   const availableRoleOptions = isAdmin
@@ -308,9 +391,17 @@ function SettingsPage() {
           {isAdmin ? t('settingsCreateUserAdmin') : t('settingsCreateTeam')}
         </h3>
         {!isAdmin ? (
-          <p className="mt-2 text-sm text-gray-600">
-            {t('settingsOwnerCreateHint')}
-          </p>
+          <div className="mt-2 space-y-2">
+            <p className="text-sm text-gray-600">
+              {t('settingsOwnerCreateHint')}
+            </p>
+            <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-2">
+              <strong>✓ Institution Name:</strong> Auto-filled with your organization and locked
+            </p>
+            <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-2">
+              <strong>✓ PAN Number:</strong> Must be unique for each employee (different from your PAN)
+            </p>
+          </div>
         ) : null}
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleCreateUser}>
           <FormInput
@@ -320,6 +411,7 @@ function SettingsPage() {
             onChange={(event) => setInstitutionName(event.target.value)}
             placeholder={t('placeholderInstitutionName')}
             required
+            disabled={isManager}
           />
           <FormInput
             label={t('commonFullName')}
@@ -367,6 +459,55 @@ function SettingsPage() {
           </div>
         </form>
       </section>
+
+      {isManager ? (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900">{t('settingsTeamMembers') || 'Team Members'}</h3>
+          </div>
+          {loadingTeam ? (
+            <p className="text-sm text-gray-500">{t('settingsLoading') || 'Loading...'}</p>
+          ) : teamMembers.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-white p-5 text-sm text-gray-500">
+              {t('settingsNoTeamMembers') || 'No team members yet'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">{t('commonFullName')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">{t('commonEmail')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">{t('commonRole')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">{t('commonPan')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settingsActions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {teamMembers.map((member) => (
+                    <tr key={member.user_id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">{member.full_name}</td>
+                      <td className="px-4 py-3">{member.email}</td>
+                      <td className="px-4 py-3">{localizeRole(member.role)}</td>
+                      <td className="px-4 py-3">{member.pan}</td>
+                      <td className="px-4 py-3">
+                        <PrimaryButton
+                          variant="outline"
+                          className="py-1.5 text-red-600 hover:bg-red-50"
+                          disabled={submitting}
+                          onClick={() => handleDeleteUser(member.user_id)}
+                        >
+                          {t('settingsDelete') || 'Delete'}
+                        </PrimaryButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {isAdmin ? (
         <>

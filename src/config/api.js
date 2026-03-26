@@ -8,9 +8,11 @@ export const AUTH_ENDPOINTS = {
   me: `${API_BASE_URL}/auth/me/`,
   adminCreateUser: `${API_BASE_URL}/auth/admin/create-user/`,
   adminAccounts: `${API_BASE_URL}/auth/admin/accounts/`,
+  adminTeamMembers: `${API_BASE_URL}/auth/admin/team-members/`,
   adminPendingUsers: `${API_BASE_URL}/auth/admin/pending-users/`,
   adminVerifyUser: `${API_BASE_URL}/auth/admin/verify-user/`,
   adminDeclineUser: `${API_BASE_URL}/auth/admin/decline-user/`,
+  adminDeleteUser: `${API_BASE_URL}/auth/admin/delete-user/`,
 }
 
 export const SALES_ENDPOINTS = {
