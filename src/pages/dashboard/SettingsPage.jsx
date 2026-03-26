@@ -202,12 +202,17 @@ function SettingsPage() {
       }
 
       setNotice(t('settingsSuccessCreateUser'))
+      setError('') // Ensure error is cleared
       setInstitutionName('')
       setFullName('')
       setEmail('')
       setPan('')
       setPassword('')
       setRole('accountant')
+      
+      // Auto-clear success message after 3 seconds
+      setTimeout(() => setNotice(''), 3000)
+      
       if (isAdmin) {
         fetchPendingUsers()
         fetchAccounts()
@@ -217,6 +222,8 @@ function SettingsPage() {
       }
     } catch (err) {
       setError(err.message)
+      // Auto-clear error after 5 seconds
+      setTimeout(() => setError(''), 5000)
     } finally {
       setSubmitting(false)
     }
