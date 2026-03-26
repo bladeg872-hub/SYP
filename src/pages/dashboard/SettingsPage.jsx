@@ -392,17 +392,9 @@ function SettingsPage() {
           {isAdmin ? t('settingsCreateUserAdmin') : t('settingsCreateTeam')}
         </h3>
         {!isAdmin ? (
-          <div className="mt-2 space-y-2">
-            <p className="text-sm text-gray-600">
-              {t('settingsOwnerCreateHint')}
-            </p>
-            <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-2">
-              <strong>✓ Institution Name:</strong> Auto-filled with your organization and locked
-            </p>
-            <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-2">
-              <strong>✓ PAN Number:</strong> Auto-filled with your organization's PAN and locked (same for all team members)
-            </p>
-          </div>
+          <p className="mt-2 text-sm text-gray-600">
+            {t('settingsOwnerCreateHint')}
+          </p>
         ) : null}
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleCreateUser}>
           <FormInput
