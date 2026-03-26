@@ -10,6 +10,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  Cell,
 } from 'recharts'
 import PageHeader from '../../components/PageHeader'
 import SummaryCard from '../../components/SummaryCard'
@@ -24,6 +25,7 @@ function DashboardHomePage() {
   const [summary, setSummary] = useState({
     total_sales: '0',
     total_expenses: '0',
+    total_purchases: '0',
     total_vat: '0',
     total_tds: '0',
     net: '0',
@@ -31,6 +33,7 @@ function DashboardHomePage() {
   })
   const [salesTrend, setSalesTrend] = useState([])
   const [expenseTrend, setExpenseTrend] = useState([])
+  const [purchaseTrend, setPurchaseTrend] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -65,6 +68,9 @@ function DashboardHomePage() {
         )
         setExpenseTrend(
           (data.expense_trend || []).map((r) => ({ name: r.name, value: Number(r.value) }))
+        )
+        setPurchaseTrend(
+          (data.purchase_trend || []).map((r) => ({ name: r.name, value: Number(r.value) }))
         )
       } catch (error) {
         console.error('Dashboard fetch error:', error)
@@ -112,12 +118,53 @@ function DashboardHomePage() {
 
   const totalSales = toNumber(summary?.total_sales || '0')
   const totalExpenses = toNumber(summary?.total_expenses || '0')
+  const totalPurchases = toNumber(summary?.total_purchases || '0')
   const totalVat = toNumber(summary?.total_vat || '0')
   const totalTds = toNumber(summary?.total_tds || '0')
   const netProfit = toNumber(summary?.net || '0')
-  const grossProfit = totalSales - totalExpenses
-  const profitMargin = totalSales > 0 ? ((grossProfit / totalSales) * 100).toFixed(2) : 0
+  const grossProfit = totalSales - totalExpenses - totalPurchases
+  const profitMargin = totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(2) : 0
   const expenseRatio = totalSales > 0 ? ((totalExpenses / totalSales) * 100).toFixed(2) : 0
+
+  // Prepare comprehensive chart data
+  const comprehensiveChartData = [
+    {
+      name: 'Sales',
+      value: totalSales,
+      fill: '#2563eb',
+      category: 'Income',
+    },
+    {
+      name: 'Purchases',
+      value: totalPurchases,
+      fill: '#f97316',
+      category: 'Expense',
+    },
+    {
+      name: 'Expenses',
+      value: totalExpenses,
+      fill: '#ef4444',
+      category: 'Expense',
+    },
+    {
+      name: 'Profit',
+      value: netProfit,
+      fill: netProfit >= 0 ? '#10b981' : '#dc2626',
+      category: 'Net',
+    },
+    {
+      name: 'VAT',
+      value: Math.abs(totalVat),
+      fill: '#8b5cf6',
+      category: 'Tax',
+    },
+    {
+      name: 'TDS',
+      value: totalTds,
+      fill: '#ec4899',
+      category: 'Tax',
+    },
+  ]
 
   const getTrendIcon = (trend) => {
     if (trend > 0) return '📈'
@@ -154,13 +201,20 @@ function DashboardHomePage() {
       ) : (
         <>
           {/* Summary Cards */}
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
             <SummaryCard
               title={t('dashboardTotalSales')}
               value={formatNpr(totalSales)}
               trend={`${getTrendIcon(getSalesChange)} ${getSalesChange > 0 ? t('dashboardTrendUp') : t('dashboardTrendDown')}`}
               description={t('dashboardSalesDescription')}
               icon="📊"
+            />
+            <SummaryCard
+              title={t('dashboardTotalPurchases') || 'Total Purchases'}
+              value={formatNpr(totalPurchases)}
+              trend={`${getTrendIcon(getExpenseChange)} ${t('dashboardTrendUp')}`}
+              description="Cost of goods purchased"
+              icon="🛍️"
             />
             <SummaryCard
               title={t('dashboardTotalExpenses')}
@@ -194,7 +248,109 @@ function DashboardHomePage() {
             />
           </section>
 
-          {/* Key Insights */}
+          {/* Comprehensive Financial Overview Chart */}
+          <section className="rounded-lg bg-white p-6 shadow-md border border-gray-200">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Financial Overview</h3>
+                <p className="text-sm text-gray-600 mt-1">Complete financial metrics at a glance - Sales, Purchases, Expenses, Profit, VAT, and TDS</p>
+              </div>
+              <PrimaryButton variant="outline" onClick={() => handlePrintChart('comprehensiveChart', 'Financial Overview')}>
+                🖨️ {t('dashboardPrintChart')}
+              </PrimaryButton>
+            </div>
+            <div className="h-96" id="comprehensiveChart">
+              {comprehensiveChartData.some((d) => d.value > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={comprehensiveChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={false} />
+                    <XAxis 
+                      dataKey="name" 
+                      style={{ fontSize: '13px', fontWeight: 500 }}
+                      tick={{ fill: '#374151' }}
+                    />
+                    <YAxis 
+                      style={{ fontSize: '12px' }}
+                      tick={{ fill: '#6b7280' }}
+                      label={{ value: 'Amount (NPR)', angle: -90, position: 'insideLeft' }}
+                    />
+                    <Tooltip
+                      formatter={(value) => formatNpr(value)}
+                      labelStyle={{ color: '#1f2937' }}
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      radius={[8, 8, 0, 0]}
+                      name="Amount"
+                    >
+                      {comprehensiveChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-gray-400 text-center">
+                    <p className="text-sm mb-2">No financial data available yet</p>
+                    <p className="text-xs">Add transactions to see the overview</p>
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Chart Legend & Explanation */}
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
+                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                <div>
+                  <p className="text-xs font-semibold text-blue-900">Sales</p>
+                  <p className="text-xs text-blue-700">{formatNpr(totalSales)}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg">
+                <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                <div>
+                  <p className="text-xs font-semibold text-orange-900">Purchases</p>
+                  <p className="text-xs text-orange-700">{formatNpr(totalPurchases)}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
+                <div className="w-4 h-4 bg-red-500 rounded"></div>
+                <div>
+                  <p className="text-xs font-semibold text-red-900">Expenses</p>
+                  <p className="text-xs text-red-700">{formatNpr(totalExpenses)}</p>
+                </div>
+              </div>
+              <div className={`flex items-center space-x-3 p-3 ${netProfit >= 0 ? 'bg-green-50' : 'bg-red-50'} rounded-lg`}>
+                <div className={`w-4 h-4 ${netProfit >= 0 ? 'bg-green-500' : 'bg-red-500'} rounded`}></div>
+                <div>
+                  <p className={`text-xs font-semibold ${netProfit >= 0 ? 'text-green-900' : 'text-red-900'}`}>Profit/Loss</p>
+                  <p className={`text-xs ${netProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatNpr(netProfit)}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
+                <div className="w-4 h-4 bg-purple-500 rounded"></div>
+                <div>
+                  <p className="text-xs font-semibold text-purple-900">VAT</p>
+                  <p className="text-xs text-purple-700">{formatNpr(Math.abs(totalVat))}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
+                <div className="w-4 h-4 bg-pink-500 rounded"></div>
+                <div>
+                  <p className="text-xs font-semibold text-pink-900">TDS</p>
+                  <p className="text-xs text-pink-700">{formatNpr(totalTds)}</p>
+                </div>
+              </div>
+            </div>
+          </section>
           <section className="rounded-lg border border-blue-200 bg-blue-50 p-5">
             <h3 className="mb-3 text-sm font-semibold text-blue-900">{t('dashboardInsights')}</h3>
             <div className="grid gap-3 text-sm text-blue-800 md:grid-cols-3">
@@ -217,7 +373,7 @@ function DashboardHomePage() {
           </section>
 
           {/* Charts */}
-          <section className="grid gap-6 lg:grid-cols-2">
+          <section className="grid gap-6 lg:grid-cols-3">
             <div className="rounded-lg bg-white p-5 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -256,6 +412,46 @@ function DashboardHomePage() {
                 ) : (
                   <p className="flex h-full items-center justify-center text-sm text-gray-400">
                     {t('dashboardNoSalesData')}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-white p-5 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">{t('dashboardPurchaseTrend') || 'Purchase Trend'}</h3>
+                  <p className="text-xs text-gray-500 mt-1">Purchases over time by transaction date</p>
+                </div>
+                {purchaseTrend.length > 0 && (
+                  <PrimaryButton variant="outline" onClick={() => handlePrintChart('purchaseChart', 'Purchase Trend')}>
+                    {t('dashboardPrintChart')}
+                  </PrimaryButton>
+                )}
+              </div>
+              <div className="h-80" id="purchaseChart">
+                {purchaseTrend.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={purchaseTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="name" style={{ fontSize: '12px' }} />
+                      <YAxis style={{ fontSize: '12px' }} />
+                      <Tooltip
+                        formatter={(value) => formatNpr(value)}
+                        labelStyle={{ color: '#1f2937' }}
+                      />
+                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                      <Bar
+                        dataKey="value"
+                        fill="#f97316"
+                        radius={[8, 8, 0, 0]}
+                        name="Purchase Amount"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="flex h-full items-center justify-center text-sm text-gray-400">
+                    No purchase data available
                   </p>
                 )}
               </div>
@@ -303,38 +499,56 @@ function DashboardHomePage() {
           </section>
 
           {/* Detailed Analysis Summary */}
-          <section className="rounded-lg bg-white p-5 shadow-sm border border-gray-100">
-            <h3 className="text-base font-semibold text-gray-900 mb-4">{t('dashboardDetailedAnalysis')}</h3>
-            <div className="grid gap-6 text-sm md:grid-cols-2">
-              <div className="space-y-2 border-r border-gray-200 pr-6">
-                <p>
-                  <span className="text-gray-600">Gross Profit:</span>
-                  <span className="ml-2 font-semibold text-gray-900">{formatNpr(grossProfit)}</span>
-                </p>
-                <p>
-                  <span className="text-gray-600">After All Expenses:</span>
-                  <span className="ml-2 font-semibold text-gray-900">{formatNpr(netProfit)}</span>
-                </p>
-                <p>
-                  <span className="text-gray-600">Tax Withholdings (TDS):</span>
-                  <span className="ml-2 font-semibold text-red-600">{formatNpr(totalTds)}</span>
-                </p>
+          <section className="rounded-lg bg-gradient-to-br from-gray-900 to-gray-800 p-8 shadow-lg text-white border border-gray-700">
+            <h3 className="text-lg font-bold mb-6">Financial Breakdown</h3>
+            <div className="grid gap-8 text-sm md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
+                <p className="font-semibold text-blue-300">💰 Sales Revenue</p>
+                <p className="text-2xl font-bold text-white">{formatNpr(totalSales)}</p>
+                <p className="text-xs text-gray-300">Total income from sales</p>
               </div>
-              <div className="space-y-2">
-                <p>
-                  <span className="text-gray-600">VAT Position:</span>
-                  <span className={`ml-2 font-semibold ${totalVat > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {totalVat > 0 ? `Payable: ${formatNpr(totalVat)}` : `Credit: ${formatNpr(-totalVat)}`}
-                  </span>
+              <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
+                <p className="font-semibold text-orange-300">🛍️ Total Purchases</p>
+                <p className="text-2xl font-bold text-white">{formatNpr(totalPurchases)}</p>
+                <p className="text-xs text-gray-300">Cost of goods purchased</p>
+              </div>
+              <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
+                <p className="font-semibold text-red-300">💸 Total Expenses</p>
+                <p className="text-2xl font-bold text-white">{formatNpr(totalExpenses)}</p>
+                <p className="text-xs text-gray-300">Operating and other expenses</p>
+              </div>
+              <div className={`space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg`}>
+                <p className={`font-semibold ${netProfit >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                  {netProfit >= 0 ? '✅' : '⚠️'} Gross Profit
                 </p>
-                <p>
-                  <span className="text-gray-600">Profit Margin:</span>
-                  <span className="ml-2 font-semibold text-gray-900">{profitMargin}%</span>
+                <p className="text-2xl font-bold text-white">{formatNpr(grossProfit)}</p>
+                <p className="text-xs text-gray-300">Sales - Purchases - Expenses</p>
+              </div>
+              <div className={`space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg`}>
+                <p className={`font-semibold ${netProfit >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                  {netProfit >= 0 ? '📈' : '📉'} Net Profit/Loss
                 </p>
-                <p>
-                  <span className="text-gray-600">Operating Efficiency:</span>
-                  <span className="ml-2 font-semibold text-gray-900">{(100 - expenseRatio).toFixed(2)}%</span>
+                <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatNpr(netProfit)}</p>
+                <p className="text-xs text-gray-300">Final net income</p>
+              </div>
+              <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
+                <p className="font-semibold text-purple-300">📊 Profit Margin</p>
+                <p className="text-2xl font-bold text-white">{profitMargin}%</p>
+                <p className="text-xs text-gray-300">Profit relative to sales</p>
+              </div>
+              <div className={`space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg`}>
+                <p className={`font-semibold ${totalVat > 0 ? 'text-red-300' : 'text-green-300'}`}>
+                  🧾 VAT Position
                 </p>
+                <p className={`text-2xl font-bold ${totalVat > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  {totalVat > 0 ? `₨${formatNpr(totalVat)}` : `₨${formatNpr(-totalVat)}`}
+                </p>
+                <p className="text-xs text-gray-300">{totalVat > 0 ? 'Payable' : 'Credit'}</p>
+              </div>
+              <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
+                <p className="font-semibold text-pink-300">💼 TDS Withheld</p>
+                <p className="text-2xl font-bold text-white">{formatNpr(totalTds)}</p>
+                <p className="text-xs text-gray-300">Tax deducted at source</p>
               </div>
             </div>
           </section>

@@ -321,11 +321,18 @@ class DashboardSummaryView(APIView):
             .annotate(value=Sum("amount"))
             .order_by("nepali_date")
         )
+        purchase_rows = (
+            PurchaseEntry.objects.filter(user=request.user)
+            .values("nepali_date")
+            .annotate(value=Sum("amount"))
+            .order_by("nepali_date")
+        )
 
         return Response({
             "summary": summary,
             "sales_trend": [{"name": r["nepali_date"], "value": str(r["value"])} for r in sales_rows],
             "expense_trend": [{"name": r["nepali_date"], "value": str(r["value"])} for r in expense_rows],
+            "purchase_trend": [{"name": r["nepali_date"], "value": str(r["value"])} for r in purchase_rows],
         })
 
 
