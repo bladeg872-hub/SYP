@@ -13,7 +13,7 @@ class UserProfile(models.Model):
 	user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
 	institution_name = models.CharField(max_length=255, blank=True)
 	full_name = models.CharField(max_length=255, blank=True)
-	pan = models.CharField(max_length=10, unique=True)
+	pan = models.CharField(max_length=10)
 	role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="accountant")
 	is_verified = models.BooleanField(default=False)
 	created_at = models.DateTimeField(auto_now_add=True)

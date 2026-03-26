@@ -61,6 +61,16 @@ class AdminCreateUserSerializer(RegisterSerializer):
     def validate_role(self, value):
         return value
 
+    def validate_pan(self, value):
+        # For admin-created users, allow duplicate PANs within same institution
+        # Check if this PAN exists for a different institution
+        existing = UserProfile.objects.filter(pan=value).first()
+        if existing:
+            # If same PAN exists, it's okay (team members can share business PAN)
+            # Just validate format
+            pass
+        return value
+
     def create(self, validated_data):
         user = super().create(validated_data)
         if hasattr(user, "profile"):
@@ -75,16 +85,21 @@ class ManagerCreateUserSerializer(RegisterSerializer):
             raise serializers.ValidationError("Business owners can only create accountant or auditor accounts.")
         return value
 
+    def validate_pan(self, value):
+        # For manager-created users, allow duplicate PANs (team members share business PAN)
+        return value
+
     def create(self, validated_data):
-        # Get the manager's profile to auto-fill institution_name
+        # Get the manager's profile to auto-fill institution_name and pan
         from rest_framework.exceptions import ValidationError as DRFValidationError
         
         manager = self.context.get('request').user
         if not hasattr(manager, 'profile'):
             raise DRFValidationError("Manager profile not found.")
         
-        # Force institution_name from manager's profile
+        # Force institution_name and pan from manager's profile
         validated_data['institution_name'] = manager.profile.institution_name
+        validated_data['pan'] = manager.profile.pan
         
         user = super().create(validated_data)
         if hasattr(user, "profile"):

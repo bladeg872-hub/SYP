@@ -154,8 +154,9 @@ function SettingsPage() {
       })
       const data = await parseApiResponse(response, t('settingsErrLoadProfile'))
       setManagerProfile(data)
-      // Auto-fill institution_name with manager's details, but NOT pan (must be unique per employee)
+      // Auto-fill institution_name and pan with manager's details
       setInstitutionName(data.institution_name || '')
+      setPan(data.pan || '')
     } catch (err) {
       setError(err.message)
     }
@@ -399,7 +400,7 @@ function SettingsPage() {
               <strong>✓ Institution Name:</strong> Auto-filled with your organization and locked
             </p>
             <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-2">
-              <strong>✓ PAN Number:</strong> Must be unique for each employee (different from your PAN)
+              <strong>✓ PAN Number:</strong> Auto-filled with your organization's PAN and locked (same for all team members)
             </p>
           </div>
         ) : null}
@@ -437,6 +438,7 @@ function SettingsPage() {
             onChange={(event) => setPan(event.target.value)}
             placeholder={t('placeholderPanDigits')}
             required
+            disabled={isManager}
           />
           <SelectInput
             label={t('commonRole')}
