@@ -66,6 +66,7 @@ export function getUserRole() {
 
 export const ROLE_PERMISSIONS = {
   admin: [
+    '/dashboard',
     '/dashboard/settings',
     '/dashboard/audit',
   ],
