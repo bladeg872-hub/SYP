@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 class UserProfile(models.Model):
@@ -105,3 +107,23 @@ class ExpenseEntry(models.Model):
 
 	def __str__(self):
 		return f"{self.user.username} - {self.expense_type} - {self.total_amount}"
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_user_profile(sender, instance, created, **kwargs):
+	"""Automatically create a UserProfile when a User is created."""
+	if created:
+		# Check if user already has a profile (shouldn't happen but just in case)
+		if not hasattr(instance, 'profile'):
+			# Determine role based on is_superuser flag
+			role = "admin" if instance.is_superuser else "accountant"
+			# Use a dummy PAN for superusers if not specified
+			pan = getattr(instance, '_pan', "0000000000")
+			UserProfile.objects.get_or_create(
+				user=instance,
+				defaults={
+					'pan': pan,
+					'role': role,
+					'is_verified': instance.is_superuser,  # Auto-verify superusers
+				}
+			)
