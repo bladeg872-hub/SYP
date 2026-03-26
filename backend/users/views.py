@@ -8,10 +8,11 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import ExpenseEntry, PurchaseEntry, SalesEntry
-from .permissions import IsAdmin, IsAdminOrAccountant, IsAdminOrManager
+from .permissions import IsAdmin, IsAdminOrAccountant, IsAdminOrManager, IsOwnerOrManagerCanEdit, IsAdminOrCanUpdateProfile
 from .serializers import (
     AccountInfoSerializer,
     AdminCreateUserSerializer,
+    ChangePasswordSerializer,
     EmailOrUsernameTokenObtainPairSerializer,
     ExpenseEntrySerializer,
     ManagerCreateUserSerializer,
@@ -19,6 +20,10 @@ from .serializers import (
     RegisterSerializer,
     SalesEntrySerializer,
     UserSerializer,
+    UpdateSalesEntrySerializer,
+    UpdatePurchaseEntrySerializer,
+    UpdateExpenseEntrySerializer,
+    UpdateUserFullProfileSerializer,
 )
 
 
@@ -92,7 +97,7 @@ class PendingUsersView(APIView):
     def get(self, request):
         pending_profiles = (
             User.objects.select_related("profile")
-            .filter(profile__is_verified=False)
+            .filter(profile__is_verified=False, profile__isnull=False)
             .exclude(profile__role="admin")
             .order_by("-profile__created_at")
         )
@@ -122,6 +127,7 @@ class AdminAccountsView(APIView):
     def get(self, request):
         users = (
             User.objects.select_related("profile")
+            .filter(profile__isnull=False)
             .exclude(profile__role="admin")
             .order_by("-profile__created_at")
         )
@@ -157,7 +163,7 @@ class ManagerTeamMembersView(APIView):
         if request.user.profile.role == "manager":
             users = (
                 User.objects.select_related("profile")
-                .filter(profile__institution_name=request.user.profile.institution_name)
+                .filter(profile__institution_name=request.user.profile.institution_name, profile__isnull=False)
                 .exclude(profile__role="admin")
                 .exclude(id=request.user.id)  # Exclude self
                 .order_by("-profile__created_at")
@@ -166,6 +172,7 @@ class ManagerTeamMembersView(APIView):
             # Admins see all non-admin users
             users = (
                 User.objects.select_related("profile")
+                .filter(profile__isnull=False)
                 .exclude(profile__role="admin")
                 .order_by("-profile__created_at")
             )
@@ -241,12 +248,73 @@ class ManagerDeleteUserView(APIView):
         return Response({"detail": "User deleted successfully."})
 
 
+class AdminUpdateUserProfileView(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    def patch(self, request):
+        """
+        Admin can update any business owner's profile.
+        Manager can update their team members' profiles.
+        """
+        user_id = request.data.get("user_id")
+
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=400)
+
+        user = User.objects.filter(id=user_id).first()
+        if not user or not hasattr(user, "profile"):
+            return Response({"detail": "User not found."}, status=404)
+
+        # Check permissions
+        if hasattr(request.user, "profile"):
+            if request.user.profile.role == "manager":
+                # Managers can only update team members in their institution
+                if user.profile.institution_name != request.user.profile.institution_name:
+                    return Response(
+                        {"detail": "You can only update users in your organization."},
+                        status=403,
+                    )
+                # Managers can only update accountant/auditor, not other managers
+                if user.profile.role == "manager":
+                    return Response(
+                        {"detail": "You cannot update other managers."},
+                        status=403,
+                    )
+            # Admin can update any non-admin user
+            elif request.user.profile.role != "admin":
+                return Response(
+                    {"detail": "You do not have permission to update user profiles."},
+                    status=403,
+                )
+        
+        serializer = UpdateUserFullProfileSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        return Response({
+            "detail": "User profile updated successfully.",
+            "user": UserSerializer(user).data
+        })
+
+
 class SalesEntryListCreateView(generics.ListCreateAPIView):
     serializer_class = SalesEntrySerializer
     permission_classes = [IsAdminOrAccountant]
 
     def get_queryset(self):
         return SalesEntry.objects.filter(user=self.request.user)
+
+
+class SalesEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UpdateSalesEntrySerializer
+    permission_classes = [IsAdminOrAccountant, IsOwnerOrManagerCanEdit]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return SalesEntry.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save()
 
 
 class PurchaseEntryListCreateView(generics.ListCreateAPIView):
@@ -257,12 +325,36 @@ class PurchaseEntryListCreateView(generics.ListCreateAPIView):
         return PurchaseEntry.objects.filter(user=self.request.user)
 
 
+class PurchaseEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UpdatePurchaseEntrySerializer
+    permission_classes = [IsAdminOrAccountant, IsOwnerOrManagerCanEdit]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return PurchaseEntry.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+
 class ExpenseEntryListCreateView(generics.ListCreateAPIView):
     serializer_class = ExpenseEntrySerializer
     permission_classes = [IsAdminOrAccountant]
 
     def get_queryset(self):
         return ExpenseEntry.objects.filter(user=self.request.user)
+
+
+class ExpenseEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UpdateExpenseEntrySerializer
+    permission_classes = [IsAdminOrAccountant, IsOwnerOrManagerCanEdit]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return ExpenseEntry.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save()
 
 
 def _aggregate_user(user):
@@ -576,3 +668,14 @@ class ChallanSlipGenerateView(APIView):
         }
         
         return Response(challan_data)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Password changed successfully."}, status=200)
+        return Response(serializer.errors, status=400)

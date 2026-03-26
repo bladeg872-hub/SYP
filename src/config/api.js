@@ -13,6 +13,7 @@ export const AUTH_ENDPOINTS = {
   adminVerifyUser: `${API_BASE_URL}/auth/admin/verify-user/`,
   adminDeclineUser: `${API_BASE_URL}/auth/admin/decline-user/`,
   adminDeleteUser: `${API_BASE_URL}/auth/admin/delete-user/`,
+  changePassword: `${API_BASE_URL}/auth/change-password/`,
 }
 
 export const SALES_ENDPOINTS = {
@@ -43,4 +44,8 @@ export const ANALYTICS_ENDPOINTS = {
 
 export const AUDIT_ENDPOINTS = {
   summary: `${API_BASE_URL}/auth/audit/`,
+}
+
+export const ADMIN_ENDPOINTS = {
+  updateUser: `${API_BASE_URL}/auth/admin/update-user/`,
 }

@@ -4,7 +4,7 @@ import PageHeader from '../../components/PageHeader'
 import PrimaryButton from '../../components/PrimaryButton'
 import FormInput from '../../components/FormInput'
 import SelectInput from '../../components/SelectInput'
-import { AUTH_ENDPOINTS } from '../../config/api'
+import { AUTH_ENDPOINTS, ADMIN_ENDPOINTS } from '../../config/api'
 import { useLanguage } from '../../context/LanguageContext'
 import { getAccessToken, getUserRole } from '../../utils/auth'
 
@@ -41,6 +41,20 @@ function SettingsPage() {
   const [managerProfile, setManagerProfile] = useState(null)
   const [teamMembers, setTeamMembers] = useState([])
   const [loadingTeam, setLoadingTeam] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [editFormData, setEditFormData] = useState({
+    full_name: '',
+    email: '',
+    institution_name: '',
+  })
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordFormData, setPasswordFormData] = useState({
+    old_password: '',
+    new_password: '',
+    new_password_confirm: '',
+  })
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false)
 
   const roleOptions = [
     { value: 'manager', label: t('roleBusinessOwner') },
@@ -277,6 +291,97 @@ function SettingsPage() {
     }
   }
 
+  const handleOpenEdit = (user) => {
+    setEditingUser(user)
+    setEditFormData({
+      full_name: user.full_name || '',
+      email: user.email || '',
+      institution_name: user.institution_name || '',
+    })
+  }
+
+  const handleEditUser = async (event) => {
+    event.preventDefault()
+    setSubmitting(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const response = await fetch(ADMIN_ENDPOINTS.updateUser, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          user_id: editingUser.user_id,
+          ...editFormData,
+        }),
+      })
+      await parseApiResponse(response, t('settingsErrUpdateUser') || 'Error updating user')
+      setNotice(t('settingsSuccessUpdateUser') || 'User updated successfully')
+      setEditingUser(null)
+      if (isAdmin) {
+        fetchAccounts()
+      } else if (isManager) {
+        fetchTeamMembers()
+      }
+      setTimeout(() => setNotice(''), 3000)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleChangePassword = async (event) => {
+    event.preventDefault()
+    
+    // Validate passwords match
+    if (passwordFormData.new_password !== passwordFormData.new_password_confirm) {
+      setError(t('settingsErrPasswordMismatch') || 'Passwords do not match')
+      return
+    }
+
+    // Validate password length
+    if (passwordFormData.new_password.length < 8) {
+      setError(t('settingsErrPasswordTooShort') || 'Password must be at least 8 characters')
+      return
+    }
+
+    setPasswordSubmitting(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const response = await fetch(AUTH_ENDPOINTS.changePassword, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          old_password: passwordFormData.old_password,
+          new_password: passwordFormData.new_password,
+          new_password_confirm: passwordFormData.new_password_confirm,
+        }),
+      })
+      await parseApiResponse(response, t('settingsErrChangePassword') || 'Error changing password')
+      setNotice(t('settingsSuccessChangePassword') || 'Password changed successfully')
+      setShowPasswordModal(false)
+      setPasswordFormData({
+        old_password: '',
+        new_password: '',
+        new_password_confirm: '',
+      })
+      setTimeout(() => setNotice(''), 3000)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setPasswordSubmitting(false)
+    }
+  }
+
   const localizeRole = (roleValue) => {
     if (roleValue === 'admin') return t('roleAdmin')
     if (roleValue === 'manager') return t('roleBusinessOwner')
@@ -302,7 +407,7 @@ function SettingsPage() {
             disabled={submitting}
             onClick={() => handleVerify(row.user_id, row.role)}
           >
-            {t('settingsAccept')}
+            Accept
           </PrimaryButton>
           <PrimaryButton
             variant="outline"
@@ -310,7 +415,7 @@ function SettingsPage() {
             disabled={submitting}
             onClick={() => handleDecline(row.user_id)}
           >
-            {t('settingsDecline')}
+            Decline
           </PrimaryButton>
         </div>
       ),
@@ -332,14 +437,24 @@ function SettingsPage() {
       key: 'actions',
       label: t('settingsActions'),
       render: (row) => (
-        <PrimaryButton
-          variant="outline"
-          className="py-1.5 text-red-600 hover:bg-red-50"
-          disabled={submitting}
-          onClick={() => handleDeleteUser(row.user_id)}
-        >
-          {t('settingsDelete') || 'Delete'}
-        </PrimaryButton>
+        <div className="flex flex-wrap gap-2">
+          <PrimaryButton
+            variant="secondary"
+            className="py-1.5"
+            disabled={submitting}
+            onClick={() => handleOpenEdit(row)}
+          >
+            Edit
+          </PrimaryButton>
+          <PrimaryButton
+            variant="outline"
+            className="py-1.5 text-red-600 hover:bg-red-50"
+            disabled={submitting}
+            onClick={() => handleDeleteUser(row.user_id)}
+          >
+            Delete
+          </PrimaryButton>
+        </div>
       ),
     },
   ]
@@ -396,6 +511,22 @@ function SettingsPage() {
           {error}
         </div>
       ) : null}
+
+      <section className="rounded-lg bg-white p-5 shadow-sm">
+        <h3 className="text-base font-semibold text-gray-900">
+          Account Security
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">
+          Update your password to keep your account secure
+        </p>
+        <div className="mt-4">
+          <PrimaryButton
+            onClick={() => setShowPasswordModal(true)}
+          >
+            Change Password
+          </PrimaryButton>
+        </div>
+      </section>
 
       <section className="rounded-lg bg-white p-5 shadow-sm">
         <h3 className="text-base font-semibold text-gray-900">
@@ -501,7 +632,7 @@ function SettingsPage() {
                           disabled={submitting}
                           onClick={() => handleDeleteUser(member.user_id)}
                         >
-                          {t('settingsDelete') || 'Delete'}
+                          Delete
                         </PrimaryButton>
                       </td>
                     </tr>
@@ -545,6 +676,148 @@ function SettingsPage() {
             )}
           </section>
         </>
+      ) : null}
+
+      {editingUser ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {t('settingsEditUser') || 'Edit User'}
+            </h3>
+            <form className="mt-4 space-y-4" onSubmit={handleEditUser}>
+              <FormInput
+                label={t('commonFullName')}
+                name="full_name"
+                value={editFormData.full_name}
+                onChange={(event) => {
+                  setEditFormData({
+                    ...editFormData,
+                    full_name: event.target.value,
+                  })
+                }}
+                placeholder={t('placeholderFullName')}
+                required
+              />
+              <FormInput
+                label={t('commonEmail')}
+                name="email"
+                type="email"
+                value={editFormData.email}
+                onChange={(event) => {
+                  setEditFormData({
+                    ...editFormData,
+                    email: event.target.value,
+                  })
+                }}
+                placeholder={t('placeholderUserEmail')}
+                required
+              />
+              <FormInput
+                label={t('commonInstitution')}
+                name="institution_name"
+                value={editFormData.institution_name}
+                onChange={(event) => {
+                  setEditFormData({
+                    ...editFormData,
+                    institution_name: event.target.value,
+                  })
+                }}
+                placeholder={t('placeholderInstitutionName')}
+                required
+              />
+              <div className="flex gap-3 pt-4">
+                <PrimaryButton
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1"
+                >
+                  Save
+                </PrimaryButton>
+                <PrimaryButton
+                  type="button"
+                  variant="outline"
+                  disabled={submitting}
+                  onClick={() => setEditingUser(null)}
+                  className="flex-1"
+                >
+                  Cancel
+                </PrimaryButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showPasswordModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Change Password
+            </h3>
+            <form className="mt-4 space-y-4" onSubmit={handleChangePassword}>
+              <FormInput
+                label="Current Password"
+                name="old_password"
+                type="password"
+                value={passwordFormData.old_password}
+                onChange={(event) => {
+                  setPasswordFormData({
+                    ...passwordFormData,
+                    old_password: event.target.value,
+                  })
+                }}
+                placeholder="Enter current password"
+                required
+              />
+              <FormInput
+                label="New Password"
+                name="new_password"
+                type="password"
+                value={passwordFormData.new_password}
+                onChange={(event) => {
+                  setPasswordFormData({
+                    ...passwordFormData,
+                    new_password: event.target.value,
+                  })
+                }}
+                placeholder="Minimum 8 characters"
+                required
+              />
+              <FormInput
+                label="Confirm New Password"
+                name="new_password_confirm"
+                type="password"
+                value={passwordFormData.new_password_confirm}
+                onChange={(event) => {
+                  setPasswordFormData({
+                    ...passwordFormData,
+                    new_password_confirm: event.target.value,
+                  })
+                }}
+                placeholder="Minimum 8 characters"
+                required
+              />
+              <div className="flex gap-3 pt-4">
+                <PrimaryButton
+                  type="submit"
+                  disabled={passwordSubmitting}
+                  className="flex-1"
+                >
+                  Save Password
+                </PrimaryButton>
+                <PrimaryButton
+                  type="button"
+                  variant="outline"
+                  disabled={passwordSubmitting}
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </PrimaryButton>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : null}
     </div>
   )
