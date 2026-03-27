@@ -17,6 +17,10 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email", "password", "pan", "institution_name", "full_name", "role"]
+        read_only_fields = ["id"]
+
+    def to_representation(self, instance):
+        return {"id": instance.id, "username": instance.username}
 
     def validate_pan(self, value):
         if UserProfile.objects.filter(pan=value).exists():
@@ -24,7 +28,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_role(self, value):
-        # Public signup cannot self-assign admin privileges.
         if value == "admin":
             raise serializers.ValidationError("Admin accounts can only be created by an existing admin.")
         return value

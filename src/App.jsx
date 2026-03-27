@@ -54,7 +54,7 @@ function App() {
         </Route>
 
         <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={<RoleRoute><DashboardHomePage /></RoleRoute>} />
+          <Route index element={<RoleRoute><Navigate to="/dashboard/settings" replace /></RoleRoute>} />
           <Route path="sales" element={<RoleRoute><SalesPage /></RoleRoute>} />
           <Route path="purchases" element={<RoleRoute><PurchasesPage /></RoleRoute>} />
           <Route path="expenses" element={<RoleRoute><ExpensesPage /></RoleRoute>} />

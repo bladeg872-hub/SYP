@@ -152,7 +152,7 @@ function ReportsPage() {
           <div class="print-info">Generated on: ${new Date().toLocaleString()} | This is an official TDS Certificate</div>
           <div class="container">
             <div class="header">
-              <h1>📄 Tax Deducted at Source (TDS) Certificate</h1>
+              <h1>Tax Deducted at Source (TDS) Certificate</h1>
               <p>Nepali Fiscal Year: ${data.fiscal_year}</p>
             </div>
             
@@ -182,7 +182,7 @@ function ReportsPage() {
             </div>
             
             <div class="table-section">
-              <h3>📊 TDS Transaction Details</h3>
+              <h3>TDS Transaction Details</h3>
               <table>
                 <thead>
                   <tr>
@@ -283,7 +283,7 @@ function ReportsPage() {
           <div class="print-info">Generated on: ${new Date().toLocaleString()} | Tax Challan Slip for IRD Submission</div>
           <div class="container">
             <div class="header">
-              <h1>🧾 Tax Challan Slip</h1>
+              <h1>Tax Challan Slip</h1>
               <p>For Institutional Tax Compliance | ${data.tax_period}</p>
             </div>
             
@@ -311,7 +311,7 @@ function ReportsPage() {
             </div>
             
             <div class="tax-summary">
-              <h3 style="color: #1e40af; margin-bottom: 15px; font-size: 16px;">📊 Tax Summary</h3>
+              <h3 style="color: #1e40af; margin-bottom: 15px; font-size: 16px;">Tax Summary</h3>
               <div class="tax-row">
                 <span class="tax-label">Total VAT Output (13% on Sales):</span>
                 <span class="tax-amount">NPR ${parseFloat(data.total_vat_output).toFixed(2)}</span>
@@ -331,12 +331,12 @@ function ReportsPage() {
             </div>
             
             <div class="total-section">
-              <span class="total-label">💰 TOTAL AMOUNT PAYABLE TO IRD:</span>
+              <span class="total-label">TOTAL AMOUNT PAYABLE TO IRD:</span>
               <span class="total-amount">NPR ${parseFloat(data.total_amount_payable).toFixed(2)}</span>
             </div>
             
             <div class="note">
-              <strong>ℹ️ Important Notice:</strong> This challan slip should be submitted to the IRD within the specified due date. 
+              <strong>Important Notice:</strong> This challan slip should be submitted to the IRD within the specified due date. 
               Payment must be made through authorized banks or tax payment centers. Keep all supporting documents for audit trail.
             </div>
             

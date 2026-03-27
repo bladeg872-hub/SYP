@@ -5,13 +5,7 @@
       <stop offset="0.55" stop-color="#2563EB"/>
       <stop offset="1" stop-color="#1D4ED8"/>
     </linearGradient>
-    <linearGradient id="financio_accent" x1="29" y1="78" x2="98" y2="30" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#E0F2FE" stop-opacity="0.35"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.95"/>
-    </linearGradient>
   </defs>
   <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#financio_bg)"/>
-  <path d="M32 88L50 40H61L79 88H67L63.5 77H47.5L44 88H32ZM50.6 67.8H60.4L55.5 52.4L50.6 67.8Z" fill="white"/>
-  <path d="M84 39C84 35.134 87.134 32 91 32H96V43H89V88H84V39Z" fill="url(#financio_accent)"/>
-  <circle cx="96" cy="97" r="6" fill="#DBEAFE"/>
+  <text x="64" y="92" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">F</text>
 </svg>

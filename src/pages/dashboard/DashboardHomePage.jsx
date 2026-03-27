@@ -167,9 +167,9 @@ function DashboardHomePage() {
   ]
 
   const getTrendIcon = (trend) => {
-    if (trend > 0) return '📈'
-    if (trend < 0) return '📉'
-    return '➡️'
+    if (trend > 0) return '+'
+    if (trend < 0) return '-'
+    return ''
   }
 
   const getSalesChange =
@@ -192,7 +192,7 @@ function DashboardHomePage() {
           />
         </div>
         <PrimaryButton variant="outline" onClick={() => window.print()}>
-          🖨️ {t('actionsPrintReport')}
+          {t('actionsPrintReport')}
         </PrimaryButton>
       </div>
 
@@ -207,21 +207,18 @@ function DashboardHomePage() {
               value={formatNpr(totalSales)}
               trend={`${getTrendIcon(getSalesChange)} ${getSalesChange > 0 ? t('dashboardTrendUp') : t('dashboardTrendDown')}`}
               description={t('dashboardSalesDescription')}
-              icon="📊"
             />
             <SummaryCard
               title={t('dashboardTotalPurchases') || 'Total Purchases'}
               value={formatNpr(totalPurchases)}
               trend={`${getTrendIcon(getExpenseChange)} ${t('dashboardTrendUp')}`}
               description="Cost of goods purchased"
-              icon="🛍️"
             />
             <SummaryCard
               title={t('dashboardTotalExpenses')}
               value={formatNpr(totalExpenses)}
               trend={`${getTrendIcon(getExpenseChange)} ${t('dashboardTrendUp')}`}
               description={t('dashboardExpensesDescription')}
-              icon="💸"
             />
             <SummaryCard
               title={t('dashboardTotalVat')}
@@ -229,14 +226,12 @@ function DashboardHomePage() {
               status={totalVat > 0 ? 'loss' : 'profit'}
               trend={totalVat > 0 ? t('dashboardNetPayable') : t('dashboardNetCredit')}
               description={t('dashboardVatDescription')}
-              icon="🧾"
             />
             <SummaryCard
               title={t('dashboardTotalTds')}
               value={formatNpr(totalTds)}
               trend={totalTds > 0 ? 'Withheld from expenses' : 'No TDS withheld'}
               description={t('dashboardTdsDescription')}
-              icon="📋"
             />
             <SummaryCard
               title={t('dashboardNetProfitLoss')}
@@ -244,7 +239,6 @@ function DashboardHomePage() {
               status={summary?.net_status || 'neutral'}
               trend={`${profitMargin}% margin`}
               description={t('dashboardProfitDescription')}
-              icon={(summary?.net_status || 'neutral') === 'profit' ? '✅' : '⚠️'}
             />
           </section>
 
@@ -256,7 +250,7 @@ function DashboardHomePage() {
                 <p className="text-sm text-gray-600 mt-1">Complete financial metrics at a glance - Sales, Purchases, Expenses, Profit, VAT, and TDS</p>
               </div>
               <PrimaryButton variant="outline" onClick={() => handlePrintChart('comprehensiveChart', 'Financial Overview')}>
-                🖨️ {t('dashboardPrintChart')}
+                {t('dashboardPrintChart')}
               </PrimaryButton>
             </div>
             <div className="h-96" id="comprehensiveChart">
@@ -503,50 +497,50 @@ function DashboardHomePage() {
             <h3 className="text-lg font-bold mb-6">Financial Breakdown</h3>
             <div className="grid gap-8 text-sm md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
-                <p className="font-semibold text-blue-300">💰 Sales Revenue</p>
+                <p className="font-semibold text-blue-300">Sales Revenue</p>
                 <p className="text-2xl font-bold text-white">{formatNpr(totalSales)}</p>
                 <p className="text-xs text-gray-300">Total income from sales</p>
               </div>
               <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
-                <p className="font-semibold text-orange-300">🛍️ Total Purchases</p>
+                <p className="font-semibold text-orange-300">Total Purchases</p>
                 <p className="text-2xl font-bold text-white">{formatNpr(totalPurchases)}</p>
                 <p className="text-xs text-gray-300">Cost of goods purchased</p>
               </div>
               <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
-                <p className="font-semibold text-red-300">💸 Total Expenses</p>
+                <p className="font-semibold text-red-300">Total Expenses</p>
                 <p className="text-2xl font-bold text-white">{formatNpr(totalExpenses)}</p>
                 <p className="text-xs text-gray-300">Operating and other expenses</p>
               </div>
               <div className={`space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg`}>
                 <p className={`font-semibold ${netProfit >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                  {netProfit >= 0 ? '✅' : '⚠️'} Gross Profit
+                  Gross Profit
                 </p>
                 <p className="text-2xl font-bold text-white">{formatNpr(grossProfit)}</p>
                 <p className="text-xs text-gray-300">Sales - Purchases - Expenses</p>
               </div>
               <div className={`space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg`}>
                 <p className={`font-semibold ${netProfit >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                  {netProfit >= 0 ? '📈' : '📉'} Net Profit/Loss
+                  Net Profit/Loss
                 </p>
                 <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatNpr(netProfit)}</p>
                 <p className="text-xs text-gray-300">Final net income</p>
               </div>
               <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
-                <p className="font-semibold text-purple-300">📊 Profit Margin</p>
+                <p className="font-semibold text-purple-300">Profit Margin</p>
                 <p className="text-2xl font-bold text-white">{profitMargin}%</p>
                 <p className="text-xs text-gray-300">Profit relative to sales</p>
               </div>
               <div className={`space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg`}>
                 <p className={`font-semibold ${totalVat > 0 ? 'text-red-300' : 'text-green-300'}`}>
-                  🧾 VAT Position
+                  VAT Position
                 </p>
                 <p className={`text-2xl font-bold ${totalVat > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                  {totalVat > 0 ? `₨${formatNpr(totalVat)}` : `₨${formatNpr(-totalVat)}`}
+                  {totalVat > 0 ? `Rs${formatNpr(totalVat)}` : `Rs${formatNpr(-totalVat)}`}
                 </p>
                 <p className="text-xs text-gray-300">{totalVat > 0 ? 'Payable' : 'Credit'}</p>
               </div>
               <div className="space-y-3 p-4 bg-gray-700 bg-opacity-50 rounded-lg">
-                <p className="font-semibold text-pink-300">💼 TDS Withheld</p>
+                <p className="font-semibold text-pink-300">TDS Withheld</p>
                 <p className="text-2xl font-bold text-white">{formatNpr(totalTds)}</p>
                 <p className="text-xs text-gray-300">Tax deducted at source</p>
               </div>
