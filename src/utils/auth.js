@@ -84,6 +84,7 @@ export const ROLE_PERMISSIONS = {
     '/dashboard/purchases',
     '/dashboard/expenses',
     '/dashboard/reports',
+    '/dashboard/analytics',
   ],
   auditor: [
     '/dashboard',

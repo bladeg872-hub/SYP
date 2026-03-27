@@ -4,11 +4,13 @@ import { useLanguage } from '../context/LanguageContext'
 import financioLogo from '../assets/financio-logo.svg'
 
 const navItems = [
+  { path: '/dashboard', labelKey: 'navDashboard', short: 'DB' },
   { path: '/dashboard/sales', labelKey: 'navSales', short: 'SA' },
   { path: '/dashboard/purchases', labelKey: 'navPurchases', short: 'PU' },
   { path: '/dashboard/expenses', labelKey: 'navExpenses', short: 'EX' },
   { path: '/dashboard/reports', labelKey: 'navReports', short: 'RP' },
   { path: '/dashboard/analytics', labelKey: 'navAnalytics', short: 'AN' },
+  { path: '/dashboard/audit', labelKey: 'navAudit', short: 'AU' },
   { path: '/dashboard/settings', labelKey: 'navSettings', short: 'SE' },
 ]
 
@@ -41,6 +43,7 @@ function Sidebar({ collapsed, mobileOpen, onClose, onToggleCollapse, userRole })
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === '/dashboard'}
               className={({ isActive }) =>
                 `flex items-center rounded-xl px-3 py-2 text-sm transition-colors ${isActive ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/30' : 'text-slate-100 hover:bg-slate-800'}`
               }
